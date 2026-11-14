@@ -15,3 +15,47 @@
 .dialog-secondary{text-decoration:none;text-align:center}
 @media(max-width:1000px) and (min-width:601px){.destination-beacon{top:83px;left:auto;right:15px;transform:none}}
 @media(max-width:600px){.destination-beacon{top:181px;left:12px;right:12px;transform:none;justify-content:center;padding:9px 12px}.destination-beacon>span{font-size:7px}.destination-beacon>b{font-size:7px}.toast{top:225px}}
+
+/* The play surface occupies the entire viewport; controls live on the map. */
+.play-screen{width:100%;height:100%;overflow:hidden;overscroll-behavior:none}
+.play-screen .app{position:fixed;inset:0;width:100%;height:100dvh;min-height:0}
+.play-screen .game-layout{position:absolute;inset:0;width:100%;height:100%;max-width:none;margin:0;padding:0}
+.play-screen .stage{position:absolute;inset:0;width:100%;height:100%;min-height:0;max-width:none;aspect-ratio:auto;margin:0;box-shadow:none}
+.play-screen .mission-card{top:max(16px,env(safe-area-inset-top));left:max(20px,env(safe-area-inset-left))}
+.play-screen .mission-card>strong,.play-screen .mission-card>.mission-description{display:none}
+.play-screen .mission-step{border:0;padding-top:0;margin-top:9px}
+.play-screen .progress-segments{margin-top:10px}
+.play-screen .resource-hud{top:max(16px,env(safe-area-inset-top));right:max(20px,env(safe-area-inset-right))}
+.mission-total{margin-left:auto;font:7px var(--mono);letter-spacing:.5px;color:#a8bc9e}
+.mission-card .eyebrow>svg{margin-left:0}
+.game-actions{position:absolute;z-index:4;top:calc(max(16px,env(safe-area-inset-top)) + 69px);right:max(20px,env(safe-area-inset-right));display:flex;gap:5px;padding:4px;background:#222b2ce8;border:1px solid #73634f88;border-radius:4px;backdrop-filter:blur(8px)}
+.game-actions .icon-button{width:30px;height:30px;color:#d5d9bf}
+.play-screen .location-chip{bottom:max(16px,env(safe-area-inset-bottom));left:max(20px,env(safe-area-inset-left))}
+.play-screen .map-tools{bottom:max(16px,env(safe-area-inset-bottom));right:max(20px,env(safe-area-inset-right))}
+.play-screen .exploration-map{bottom:calc(max(16px,env(safe-area-inset-bottom)) + 45px);right:max(20px,env(safe-area-inset-right))}
+.play-screen .touch-controls{position:absolute;bottom:calc(max(16px,env(safe-area-inset-bottom)) + 48px);left:max(20px,env(safe-area-inset-left));grid-template-columns:44px 44px 44px;grid-template-rows:44px 44px;gap:4px;z-index:5}
+.play-screen .touch-controls button{background:#26342be0;border:1px solid #c2ae8766;border-radius:4px;font:17px var(--mono);color:#ebdfc0;touch-action:none;user-select:none}
+.play-screen .touch-controls button:active{background:#e8ac73;color:#273027}
+.play-screen .touch-controls button[data-dir=up]{grid-column:2}
+.play-screen .touch-controls button[data-dir=left]{grid-column:1;grid-row:2}
+.play-screen .touch-controls button[data-dir=down]{grid-column:2;grid-row:2}
+.play-screen .touch-controls button[data-dir=right]{grid-column:3;grid-row:2}
+@media(pointer:coarse){.play-screen .touch-controls{display:grid}}
+@media(min-width:601px) and (max-width:1000px){.play-screen .destination-beacon{top:calc(max(16px,env(safe-area-inset-top)) + 80px);left:50%;right:auto;transform:translateX(-50%)}}
+@media(max-width:600px){
+  .play-screen .mission-card{top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));display:block;width:auto;padding:11px 14px 10px;transform:none}
+  .play-screen .mission-card>strong,.play-screen .mission-card>.mission-description{display:none}
+  .play-screen .mission-step{margin-top:9px;padding:0;border:0;max-width:none}
+  .play-screen .progress-segments{margin-top:10px}
+  .play-screen .resource-hud{top:calc(max(12px,env(safe-area-inset-top)) + 74px);left:max(12px,env(safe-area-inset-left));right:132px;height:47px;padding:7px 0}
+  .play-screen .resource{min-width:0;flex:1;padding:0 6px;gap:5px}
+  .play-screen .resource svg{width:15px}
+  .play-screen .resource-track{left:6px;right:6px}
+  .play-screen .game-actions{top:calc(max(12px,env(safe-area-inset-top)) + 74px);right:max(12px,env(safe-area-inset-right));gap:3px;padding:4px}
+  .play-screen .destination-beacon{top:calc(max(12px,env(safe-area-inset-top)) + 134px);left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right))}
+  .play-screen .toast{top:calc(max(12px,env(safe-area-inset-top)) + 178px)}
+  .play-screen .location-chip{left:max(12px,env(safe-area-inset-left));bottom:max(12px,env(safe-area-inset-bottom));max-width:calc(100% - 176px)}
+  .play-screen .map-tools{right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom))}
+  .play-screen .exploration-map{right:max(12px,env(safe-area-inset-right));bottom:calc(max(12px,env(safe-area-inset-bottom)) + 96px)}
+  .play-screen .interact-prompt{right:max(12px,env(safe-area-inset-right));bottom:calc(max(12px,env(safe-area-inset-bottom)) + 43px);max-width:calc(100% - 190px)}
+}

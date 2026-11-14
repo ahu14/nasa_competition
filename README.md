@@ -10,7 +10,9 @@ node scripts/serve.mjs
 
 Then visit **http://localhost:4173**.
 
-The homepage uses the supplied **Mars Mission Menu_ How to Play.svg** artwork. Choose **Start** to enter or continue your expedition. **Settings** saves your sound and camera zoom preferences; **How to Play** explains the controls and mission. The game loads after Start, so waiting on the homepage uses no suit resources. Your saved expedition is preserved. Return to the menu using the NOVA logo or the pause menu. The game itself is at `game.html`.
+The homepage uses the supplied **Mars Mission Menu_ How to Play.svg** artwork. Choose **Start** to enter or continue your expedition. **Settings** saves your sound and camera zoom preferences; **How to Play** explains the controls and mission. The game loads after Start, so waiting on the homepage uses no suit resources. Your saved expedition is preserved. The game itself is at `game.html`.
+
+The game fills the browser window with no header, footer, frame, or page margins. Sound, help, pause, and mission controls float over the map. Press **Esc** or use the pause button to return to the main menu. The expand button enters browser fullscreen while keeping dialogs and controls available.
 
 Use **WASD / arrow keys** to walk, **Shift** to move faster, **E / Space** to interact, **M** for your mission log, **H** for the field guide, and **Esc** to pause. Click or tap a place to walk there automatically. Touch movement buttons are available on phones.
 

@@ -421,15 +421,13 @@
     showDialog('EXPEDITION 004 · COMPLETE', `<div class="success-stars" aria-hidden="true">✦ ✧ ✦</div><h1 id="dialog-title">One small outpost.<br>One giant beginning.</h1><p class="dialog-body">You brought power, a little green, and a new discovery to a quiet corner of Mars. That’s a pretty good first day.</p><div class="dialog-stat">${icon('check')}5 / 5 missions · ${number(state.samples)} samples · ${Math.max(1, Math.round(state.seconds / 60))} min exploring</div>${actionButton('Stay a little longer')}<button class="dialog-secondary" id="new-expedition">Begin a new expedition</button>`);
     $('dialog-action').onclick = closeDialog; $('new-expedition').onclick = confirmReset;
   }
-  $('missions-button').addEventListener('click', showMissions);
   $('mission-card').addEventListener('click', showMissions);
-  $('guide-button').addEventListener('click', showGuide); $('help-button').addEventListener('click', showGuide);
+  $('guide-button').addEventListener('click', showGuide);
   $('pause-button').addEventListener('click', showPause);
-  $('outpost-button').addEventListener('click', () => { if (dialog.open) closeDialog(); canvas.focus({ preventScroll: true }); });
   $('fullscreen-button').addEventListener('click', async () => {
     try {
       if (document.fullscreenElement) await document.exitFullscreen();
-      else if (stage.requestFullscreen) await stage.requestFullscreen();
+      else if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
       else toast('Use your browser’s fullscreen option for a wider view.');
     } catch { toast('Fullscreen isn’t available in this browser.'); }
   });
