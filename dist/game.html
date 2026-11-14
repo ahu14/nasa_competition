@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#161d20">
+  <meta name="description" content="Make a little home on the red planet. Explore a pixel-art Mars outpost, restore its systems, and discover what lies beneath the dust.">
+  <title>NOVA — Mars Outpost</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24"><path d="m11 4-6 5H2v6h3l6 5V4Zm4 4c2 2 2 6 0 8m3-11c4 4 4 10 0 14"/></symbol>
+    <symbol id="i-muted" viewBox="0 0 24 24"><path d="m11 4-6 5H2v6h3l6 5V4Zm5 5 6 6m0-6-6 6"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 0 1 14 0Z"/><circle cx="12" cy="10" r="2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M20 3C8 2 2 8 5 15s15 4 15-12ZM4 21 15 10"/></symbol>
+    <symbol id="i-crystal" viewBox="0 0 24 24"><path d="m12 2 7 7-2 10-5 3-5-3L5 9l7-7Zm0 0v20M5 9h14"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-8 9 8v11h-7v-7h-4v7H3V10Z"/></symbol>
+    <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M8 15c-2-5 1-10 8-12 2 7 0 12-5 13l-3-1Zm-1-5-4 2 1 5 4-2m7-2 2 4-5 3-1-4M6 19l-3 3"/><circle cx="13" cy="8" r="1"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="m13 2-9 12h7l-1 8 10-13h-8l1-7Z"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 3h14a2 2 0 0 1 2 2v16H5a3 3 0 0 1-3-3V5a2 2 0 0 1 2-2Zm-2 15a3 3 0 0 1 3-3h15M7 7h8m-8 4h5"/></symbol>
+  </defs></svg>
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="NOVA Mars Outpost home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="brand-word">NOVA<span class="brand-sub">MARS OUTPOST</span></span></a>
+      <nav aria-label="Game navigation"><button class="nav-button active" id="outpost-button"><span class="nav-dot"></span>Outpost</button><button class="nav-button" id="missions-button">Mission log<span class="nav-count" id="nav-count">0/5</span></button><button class="nav-button" id="guide-button">Field guide<svg><use href="#i-arrow"/></svg></button></nav>
+      <div class="header-right"><div class="planet-status"><span class="live-dot"></span>ALL SYSTEMS NOMINAL</div><span class="header-rule"></span><div class="sol">SOL <strong>011</strong><span class="temperature">−63°C</span></div><button class="icon-button" id="sound-button" aria-label="Turn sound on" title="Turn sound on"><svg><use href="#i-muted"/></svg></button><button class="icon-button" id="pause-button" aria-label="Pause game" title="Pause (Esc)"><svg><use href="#i-pause"/></svg></button></div>
+    </header>
+    <main class="game-layout">
+      <div class="above-stage"><span><span class="tiny-cross">+</span> ELYSIUM PLANITIA<span class="coordinates" id="world-coordinates"> X +000 · Y +000</span></span><span class="expedition-tag">EXPEDITION 004 <span>/</span> OPEN EXPLORATION</span></div>
+      <section class="stage" id="stage" aria-label="Interactive Mars outpost game">
+        <canvas id="game" tabindex="0" aria-label="Explore the Mars outpost. Use arrow keys or WASD to move, and E to interact. You can also click a destination."></canvas>
+        <div class="vignette" aria-hidden="true"></div>
+        <div class="corner corner-tl"></div><div class="corner corner-tr"></div><div class="corner corner-bl"></div><div class="corner corner-br"></div>
+        <button class="mission-card" id="mission-card" aria-label="Open current mission"><span class="eyebrow"><span class="mini-diamond"></span>CURRENT MISSION<svg><use href="#i-arrow"/></svg></span><strong id="mission-title">A place to call home.</strong><span class="mission-description" id="mission-description">A little life on a red planet.</span><span class="mission-step"><span id="step-number">01</span><span id="step-label">Restore the solar array</span><svg><use href="#i-arrow"/></svg></span><span class="progress-segments" id="progress-segments"><i></i><i></i><i></i><i></i><i></i></span></button>
+        <div class="resource-hud" aria-label="Suit resources"><div class="resource"><span class="oxygen-icon">O<sub>2</sub></span><span><small>OXYGEN</small><b id="oxygen-value">98<span>%</span></b></span><span class="resource-track"><i id="oxygen-bar"></i></span></div><div class="resource"><svg class="energy-icon"><use href="#i-bolt"/></svg><span><small>ENERGY</small><b id="energy-value">72<span>%</span></b></span><span class="resource-track energy-track"><i id="energy-bar"></i></span></div><div class="resource sample-resource"><svg><use href="#i-crystal"/></svg><span><small>SAMPLES</small><b id="samples-value">00</b></span></div></div>
+        <button class="destination-beacon" id="destination-beacon" aria-label="Walk to next station" hidden><svg id="destination-arrow"><use href="#i-arrow"/></svg><span id="destination-name"></span><b id="destination-distance"></b></button>
+        <div class="welcome" id="welcome"><span class="welcome-kicker">WELCOME TO YOUR NEXT CHAPTER</span><strong>Far from Earth.<br>Closer to something new.</strong><span>Take a walk. Make yourself at home.</span><button id="begin-button">Let’s explore <svg><use href="#i-arrow"/></svg></button></div>
+        <div class="location-chip"><svg><use href="#i-pin"/></svg><span>NOVA BASE <span class="location-divider">/</span> <b id="location-name">THE OUTPOST</b></span><span class="live-dot"></span></div>
+        <button class="interact-prompt" id="interact-prompt" hidden><kbd>E</kbd><span id="interact-label">Interact</span><svg><use href="#i-arrow"/></svg></button>
+        <div class="exploration-map"><span class="minimap-heading">STATION SCANNER <span>N ↑</span></span><canvas id="minimap" width="148" height="100" aria-label="Station map. The gold triangle is you; the green marker is home base."></canvas><span class="base-distance" id="base-distance">BASE · 0 m</span></div>
+        <div class="map-tools"><button class="icon-button recall-button" id="recall-button" aria-label="Return to base" title="Return to base (B)"><svg><use href="#i-home"/></svg></button><span class="zoom-controls"><button id="zoom-out" aria-label="Zoom out" title="Zoom out (−)">−</button><span id="zoom-value">100%</span><button id="zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button></span><button class="icon-button" id="fullscreen-button" aria-label="Toggle fullscreen" title="Fullscreen"><svg><use href="#i-expand"/></svg></button></div>
+        <div class="toast" id="toast" role="status" aria-live="polite" hidden><span class="toast-icon"><svg><use href="#i-check"/></svg></span><span id="toast-text"></span></div>
+        <div class="touch-controls" aria-label="Movement controls"><button data-dir="up" aria-label="Move up">↑</button><button data-dir="left" aria-label="Move left">←</button><button data-dir="down" aria-label="Move down">↓</button><button data-dir="right" aria-label="Move right">→</button></div>
+        <div class="loading" id="loading"><div class="loading-mark"><span></span><span></span><span></span></div><b>ESTABLISHING UPLINK</b><span>Your little corner of the universe is loading.</span></div>
+      </section>
+      <footer class="controls-bar"><div class="keyboard-controls"><span><span class="key-group"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span class="or">/</span><span class="key-group"><kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd></span>Move</span><i></i><span><kbd>E</kbd>Interact</span><i></i><span><span class="mouse-icon"></span>Click to explore</span><i></i><span><kbd>B</kbd>Return to base</span></div><div class="footer-message"><span class="live-dot"></span>Keep going. There’s more out there.</div><button id="help-button" title="Open field guide">How to play<span>?</span></button></footer>
+    </main>
+  </div>
+  <dialog id="dialog" aria-labelledby="dialog-title"><div class="dialog-top"><span class="eyebrow" id="dialog-eyebrow">OUTPOST SYSTEMS</span><button class="icon-button" id="close-dialog" aria-label="Close dialog"><svg><use href="#i-close"/></svg></button></div><div id="dialog-content"></div></dialog>
+  <script src="core.js"></script>
+  <script src="world.js"></script>
+  <script src="character.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

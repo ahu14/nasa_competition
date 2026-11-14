@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#422445">
+  <meta name="description" content="Oops! You're on Mars. Explore a pixel-art world, bring the outpost to life, and complete your expedition. Start your adventure here.">
+  <title>Oops! I'm on Mars — Main Menu</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="menu.css">
+</head>
+<body>
+  <main class="home-screen" aria-labelledby="home-title">
+    <h1 class="sr-only" id="home-title">Oops! I'm on Mars</h1>
+    <div class="home-artboard">
+      <img class="home-art" src="assets/mars-mission-menu.svg" width="1671" height="941" alt="" aria-hidden="true" fetchpriority="high">
+      <div class="home-mobile-logo" aria-hidden="true"></div>
+      <nav class="menu-actions" aria-label="Main menu">
+        <a class="menu-control menu-start" id="start-game" href="game.html" aria-label="Start game"><span class="sr-only">Start game</span></a>
+        <button class="menu-control menu-settings" id="menu-settings" aria-label="Settings"><span class="sr-only">Settings</span></button>
+        <button class="menu-control menu-how" id="how-to-play" aria-label="How to play"><span class="sr-only">How to play</span></button>
+      </nav>
+      <p class="saved-expedition" id="saved-expedition" role="status" hidden></p>
+    </div>
+  </main>
+  <dialog class="home-dialog" id="home-dialog" aria-labelledby="home-dialog-title">
+    <div class="menu-dialog-top"><span id="home-dialog-kicker"></span><button class="menu-dialog-close" id="home-dialog-close" aria-label="Close menu dialog">×</button></div>
+    <h2 id="home-dialog-title"></h2><div id="home-dialog-content"></div>
+  </dialog>
+  <script src="core.js"></script>
+  <script src="home.js"></script>
+</body>
+</html>
