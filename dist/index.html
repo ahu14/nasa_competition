@@ -20,13 +20,14 @@
         <button class="menu-control menu-settings" id="menu-settings" aria-label="Settings"><span class="sr-only">Settings</span></button>
         <button class="menu-control menu-how" id="how-to-play" aria-label="How to play"><span class="sr-only">How to play</span></button>
       </nav>
-      <p class="saved-expedition" id="saved-expedition" role="status" hidden></p>
+      <div class="saved-expedition" id="saved-expedition" hidden><span id="saved-expedition-label" role="status"></span><button id="replay-story-home" title="Replay the opening story. Mission progress is kept.">↺ Replay story</button></div>
     </div>
   </main>
   <dialog class="home-dialog" id="home-dialog" aria-labelledby="home-dialog-title">
     <div class="menu-dialog-top"><span id="home-dialog-kicker"></span><button class="menu-dialog-close" id="home-dialog-close" aria-label="Close menu dialog">×</button></div>
     <h2 id="home-dialog-title"></h2><div id="home-dialog-content"></div>
   </dialog>
+  <script src="training-model.js"></script>
   <script src="core.js"></script>
   <script src="home.js"></script>
 </body>

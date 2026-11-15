@@ -57,8 +57,15 @@
       // ORBI has a separate, local-only television beside the sleep pod.
       r(549,299,174,132,'#142735');r(542,288,174,132,'#6b8590');r(549,295,160,107,'#172b3a');r(555,301,148,94,'#214851');
       r(554,293,150,3,'#a7c3bd');r(554,405,110,6,'#a7bbb1');r(686,405,9,6,'#d79d65');r(622,420,14,14,'#4e6975');r(587,434,84,9,'#192e3c');
+      // Breakfast counter: a meal tray, cutlery, and a water dispenser.
+      r(276,702,175,49,'#172d39');r(270,690,175,50,'#8d9a95');r(270,690,175,31,'#c0c6aa');r(274,692,167,4,'#e2dfbc');r(281,725,153,6,'#526f76');
+      r(392,652,44,59,'#263e4c');r(397,657,34,42,'#a2d1ca');r(401,662,26,17,'#80b9ce');r(401,685,9,8,'#4d7584');r(415,687,10,8,'#e2c17d');
+      r(281,700,7,15,'#6f8581');r(294,700,3,15,'#6f8581');r(302,701,4,14,'#6f8581');
+      // A weather screen next to the airlock, independent of the broken uplink.
+      r(816,623,140,85,'#162b39');r(810,613,140,85,'#708893');r(817,620,126,58,'#153e4c');r(820,622,120,3,'#a2cfc7');
+      r(821,684,70,6,'#b1bc9e');r(919,684,11,6,'#d4ad72');r(871,698,18,12,'#54717b');r(848,710,65,6,'#1b303d');
     }
-    drawCabin(ctx,time,reducedMotion,signal='waiting',orbiPhase='locked') {
+    drawCabin(ctx,time,reducedMotion,signal='waiting',orbiPhase='locked',preparation={},weather={sol:1,temperature:-42}) {
       const connected=signal==='connected',faulty=signal==='error'||signal==='lost';
       ctx.drawImage(this.room,0,0);
       ctx.fillStyle='#153544';ctx.fillRect(750,322,160,71);
@@ -79,6 +86,10 @@
       if(this.orbiImage){ctx.save();ctx.globalAlpha=awake?1:.13;ctx.drawImage(this.orbiImage,593,301,78,72);ctx.restore();}
       ctx.textAlign='center';ctx.font='bold 8px Consolas,monospace';ctx.fillStyle=awake?'#ffe2a1':'#688b94';ctx.fillText('O R B I',629,382);
       ctx.font='6px Consolas,monospace';ctx.fillStyle=awake?'#b8e7d1':'#65828c';ctx.fillText(awake?'CREW COMPANION ONLINE':orbiPhase==='booting'?'WAKING UP…':'ASSISTANT ON STANDBY',629,391);ctx.textAlign='left';
+      ctx.fillStyle='#f1e4b9';ctx.fillRect(318,699,59,18);ctx.fillStyle='#8eaa98';ctx.fillRect(321,702,53,12);
+      if(!preparation.ate){ctx.fillStyle='#b0bc6e';ctx.fillRect(325,704,19,8);ctx.fillStyle='#d79c5e';ctx.fillRect(347,704,22,8);ctx.fillStyle='#e3cc8c';ctx.fillRect(351,705,13,3);}
+      ctx.fillStyle='#d7e4cf';ctx.fillRect(374,681,14,27);ctx.fillStyle=preparation.drank?'#91aca7':'#6fbeda';ctx.fillRect(377,688,8,16);ctx.fillStyle='#4d6b77';ctx.fillRect(378,678,6,4);
+      ctx.textAlign='left';ctx.font='bold 8px Consolas,monospace';ctx.fillStyle='#f2d193';ctx.fillText(`DAY ${weather.sol} · WEATHER`,826,640);ctx.font='7px Consolas,monospace';ctx.fillStyle='#c2dccc';ctx.fillText(`${weather.temperature} C · SIMULATED`,826,655);ctx.fillStyle=weather.storm?'#f0a382':preparation.weatherChecked?'#a4d6ad':'#d3b687';ctx.fillText(weather.storm?'STORM DRILL · NO EVA':preparation.weatherChecked?'PREFLIGHT CHECKED':'CHECK BEFORE EXIT',826,669);
     }
     draw(ctx,width,height,dpr,time,reducedMotion) {
       const scale=Math.max(width/1100,height/800),x=550-width/scale/2,y=535-height/scale*.58;

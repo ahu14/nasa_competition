@@ -9,6 +9,8 @@
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="orbi.css">
+  <link rel="stylesheet" href="preparation.css">
+  <link rel="stylesheet" href="training.css">
 </head>
 <body class="play-screen">
   <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
@@ -37,6 +39,8 @@
         <div class="ship-panel" id="ship-panel" hidden><span class="eyebrow">NOVA · SPACESHIP<span id="ship-link-status">EARTH: STANDBY</span></span><div><button id="ship-earth-nav">Earth screen <span id="earth-nav-indicator">↗</span></button><button id="ship-orbi-nav">ORBI <span id="orbi-nav-indicator">↗</span></button><button id="ship-exit-nav">Airlock <span>↗</span></button></div></div>
         <button class="earth-notification" id="earth-notification" aria-label="Incoming transmission from Earth" title="Incoming transmission from Earth" hidden>!</button>
         <button class="earth-notification orbi-notification" id="orbi-notification" aria-label="Talk to ORBI" title="ORBI has a message for you" hidden>!</button>
+        <section class="ship-prep" id="ship-prep" aria-label="Before going outside" hidden><span id="prep-heading">BEFORE YOU HEAD OUT</span><p id="prep-description">A little breakfast. A look at the sky.</p><ol><li><button id="prep-eat"><span id="prep-eat-mark">○</span>Eat a meal</button></li><li><button id="prep-drink"><span id="prep-drink-mark">○</span>Drink water</button></li><li><button id="prep-weather"><span id="prep-weather-mark">○</span>Check weather</button></li><li id="prep-emu-item"><button id="prep-emu"><span id="prep-emu-mark">○</span>EMU training</button></li></ol></section>
+        <section class="survival-hud" id="survival-hud" aria-label="Day and supply reserves" hidden><button id="day-journal" title="Open today’s exploration plan"><small>MISSION DAY</small><strong id="day-value">DAY 1</strong></button><div><span>FOOD STOCK <b id="food-stock-value">28%</b></span><i><b id="food-stock-bar"></b></i></div><div><span>WATER STOCK <b id="water-stock-value">32%</b></span><i><b id="water-stock-bar"></b></i></div></section>
         <div class="resource-hud" aria-label="Suit resources"><div class="resource"><span class="oxygen-icon">O<sub>2</sub></span><span><small>OXYGEN</small><b id="oxygen-value">98<span>%</span></b></span><span class="resource-track"><i id="oxygen-bar"></i></span></div><div class="resource"><svg class="energy-icon"><use href="#i-bolt"/></svg><span><small>ENERGY</small><b id="energy-value">72<span>%</span></b></span><span class="resource-track energy-track"><i id="energy-bar"></i></span></div><div class="resource sample-resource"><svg><use href="#i-crystal"/></svg><span><small>SAMPLES</small><b id="samples-value">00</b></span></div></div>
         <nav class="game-actions" aria-label="Game controls"><button class="icon-button" id="sound-button" aria-label="Turn sound on" title="Turn sound on"><svg><use href="#i-muted"/></svg></button><button class="icon-button" id="guide-button" aria-label="Field guide" title="How to play (H)"><svg><use href="#i-book"/></svg></button><button class="icon-button" id="pause-button" aria-label="Pause game" title="Pause (Esc)"><svg><use href="#i-pause"/></svg></button></nav>
         <button class="destination-beacon" id="destination-beacon" aria-label="Walk to next station" hidden><svg id="destination-arrow"><use href="#i-arrow"/></svg><span id="destination-name"></span><b id="destination-distance"></b></button>
@@ -68,7 +72,12 @@
       <p class="orbi-story-caption" id="orbi-caption"></p>
     </div>
   </dialog>
+  <dialog class="training-dialog" id="training-dialog" aria-labelledby="training-title"><header class="training-top"><div><span id="training-kicker">ORBI / TRAINING</span><h1 id="training-title">Mission training</h1></div><button id="training-close" aria-label="Close training">×</button></header><div class="training-inner" id="training-content"></div></dialog>
+  <script src="training-model.js"></script>
   <script src="core.js"></script>
+  <script src="donki-records.js"></script>
+  <script src="donki.js"></script>
+  <script src="training.js"></script>
   <script src="world.js"></script>
   <script src="character.js"></script>
   <script src="intro.js"></script>

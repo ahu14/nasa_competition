@@ -35,6 +35,21 @@
         const station = C.stations.find(s => s.id === owners[i]);
         return { ...sprite, x: sprite.x + station.dx, y: sprite.y + station.dy };
       });
+      const depot=document.createElement('canvas');depot.width=380;depot.height=350;
+      const p=depot.getContext('2d');p.imageSmoothingEnabled=false;
+      const r=(x,y,w,h,color)=>{p.fillStyle=color;p.fillRect(x,y,w,h);};
+      r(34,92,281,240,'#593b38');r(26,89,274,231,'#c6b4a0');r(34,99,258,207,'#f0d9b7');
+      r(49,78,232,15,'#392f35');r(42,91,244,9,'#687779');r(38,103,252,10,'#fff0cc');
+      for(let x=41;x<291;x+=48){r(x,114,3,184,'#d1b69b');r(x+3,115,4,179,'#ecd2b2');}
+      r(31,286,266,15,'#e0a056');r(38,302,254,10,'#998d81');r(50,313,234,8,'#3d3b3b');
+      r(83,119,162,57,'#324c51');r(90,125,148,43,'#203b45');p.textAlign='center';p.font='bold 12px Consolas,monospace';p.fillStyle='#efdfae';p.fillText('NOVA SUPPLY DEPOT',164,142);p.font='8px Consolas,monospace';p.fillStyle='#9dcfc1';p.fillText('FOOD  /  WATER',164,158);
+      r(136,213,76,99,'#4a4040');r(143,220,62,87,'#638b92');r(149,226,50,79,'#274e5d');r(155,231,38,69,'#77c5d0');r(172,232,4,68,'#a7e7dc');r(132,312,85,8,'#e3b980');
+      for(let x=50;x<117;x+=35){r(x,196,28,32,'#394b55');r(x+4,200,20,23,'#6ea5ba');r(x+5,201,17,4,'#abd1ce');}
+      r(237,197,36,34,'#394b55');r(243,202,24,22,'#7ca7b3');
+      r(296,154,52,143,'#3a4b56');r(302,141,40,159,'#6aa9bd');r(308,140,28,8,'#bedbd0');r(309,151,7,132,'#a3d3d7');r(301,171,41,9,'#3e687e');r(301,260,41,8,'#3e687e');r(313,199,18,25,'#d6e2d0');r(317,203,10,15,'#6aa9bd');r(345,249,14,8,'#384d5c');r(353,252,6,39,'#7b8a84');
+      for(const [x,y]of[[14,267],[52,280],[252,270]]){r(x,y,40,39,'#583a35');r(x+3,y+3,34,30,'#db9e5b');r(x+7,y+6,26,22,'#b87942');r(x+18,y+3,5,30,'#efcd8e');r(x+4,y+30,32,5,'#8d5d3c');}
+      r(87,57,148,24,'#223e52');for(let x=92;x<231;x+=26){r(x,61,21,14,'#407f9b');r(x+2,63,15,2,'#9bc7d1');}r(120,49,80,8,'#a9bcb6');
+      this.sites.push({image:depot,x:3320,y:3060,w:380,h:350});
     }
     tile(cx, cy) {
       const key = `${cx},${cy}`;

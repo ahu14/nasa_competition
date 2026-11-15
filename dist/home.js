@@ -11,10 +11,17 @@
     const expedition = JSON.parse(localStorage.getItem('nova-mars-outpost-v1'));
     if (expedition?.version === 1 && (expedition.seconds > 0 || expedition.introStep > 0 || expedition.introComplete || Object.values(expedition.tasks || {}).some(Boolean))) {
       const completed = window.NOVACore.tasks.filter(task => expedition.tasks?.[task.id] === true).length;
-      $('saved-expedition').textContent = expedition.introComplete===false&&expedition.introStep>0?'SAVED STORY · THE AWAKENING · START TO CONTINUE':`SAVED EXPEDITION · ${completed} / 5 MISSIONS · START TO CONTINUE`;
+      $('saved-expedition-label').textContent = expedition.introComplete===false&&expedition.introStep>0?'SAVED STORY · THE AWAKENING · START TO CONTINUE':`DAY ${expedition.survival?.day||1} · ${completed} / 5 OUTPOST SYSTEMS · START TO CONTINUE`;
       $('saved-expedition').hidden = false;
     }
   } catch { /* Missing progress means a fresh expedition. */ }
+  $('replay-story-home').addEventListener('click',()=>{
+    let expedition;
+    try{expedition=JSON.parse(localStorage.getItem('nova-mars-outpost-v1'));}catch{ /* Default story if storage is unavailable. */ }
+    const replay=window.NOVACore.replayStory(window.NOVACore.normalizeState(expedition));
+    try{localStorage.setItem('nova-mars-outpost-v1',JSON.stringify(replay));}catch{ /* The game can run without storage. */ }
+    location.href='game.html';
+  });
   function openDialog(kicker, title, html) {
     $('home-dialog-kicker').textContent = kicker;
     $('home-dialog-title').textContent = title;
@@ -42,7 +49,7 @@
         <div><span>Mission log / pause</span><span><kbd>M</kbd><em>/</em><kbd>Esc</kbd></span></div>
       </div>
       <h3 class="menu-section-label">YOUR MISSION</h3><ol class="menu-mission-list">${missions}</ol>
-      <p class="menu-tip">Explore the spaceship after waking up. Watch for ! alerts on the Earth screen and ORBI’s TV. ORBI may know something about you. The airlock leads outside; return through the rocket whenever you like. On Mars, follow the roads or gold direction marker. Touch controls appear on phones. Your progress saves on this device.</p>
+      <p class="menu-tip">Day 1: eat, drink, check the weather, and match the EMU components with ORBI before exploring for supplies. Day 2: stay inside, review real NASA observations, and practise solar-storm decisions. The Mars storm effects are simulated. Sleep in the ship to advance the day. Your lessons, supplies, and story save on this device. Replay story starts Day 1 again.</p>
       <button class="menu-dialog-action" id="guide-done">Ready for launch <span>→</span></button>`);
     $('guide-done').addEventListener('click', () => dialog.close());
   });

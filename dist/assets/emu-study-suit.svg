@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 400" shape-rendering="crispEdges">
+<ellipse cx="143" cy="380" rx="91" ry="12" fill="#122d38" opacity=".65"/>
+<path fill="#243044" d="M174 120h62v151h-62z"/><path fill="#bcc4c7" d="M183 127h45v132h-45z"/><path fill="#ebdfc7" d="M194 133h24v76h-24z"/><path fill="#7dc4cf" d="M199 145h13v42h-13z"/><path fill="#e6a455" d="M190 223h31v10h-31z"/>
+<path fill="#222636" d="M99 14h77v11h20v20h12v69h-12v21h-99v-13H81V41h10V25h8z"/><path fill="#ece8dc" d="M105 23h66v10h19v17h10v57h-13v19H99v-14H89V48h10V32h6z"/>
+<path fill="#c2c7d8" d="M97 44h88v65H97z"/><path fill="#222c42" d="M106 48h71v53h-71z"/><path fill="#81532e" d="M114 53h55v42h-55z"/><path fill="#d59e48" d="M119 55h44v34h-44z"/><path fill="#efce84" d="M123 59h20v6h-20z"/><path fill="#e2a057" d="M108 116h68v12h-68z"/>
+<path fill="#232c3c" d="M85 132h108v20h18v114h-19v22H85v-22H66V152h19z"/><path fill="#e4e4d7" d="M91 140h95v17h17v98h-20v24H92v-23H74v-99h17z"/><path fill="#fff1d6" d="M102 145h70v16h-70z"/><path fill="#b7c3cc" d="M93 162h89v11H93zM94 252h89v14H94z"/>
+<path fill="#526c7b" d="M112 180h53v49h-53z"/><path fill="#91c2c4" d="M119 187h39v27h-39z"/><path fill="#d0e7d1" d="M123 192h24v5h-24z"/><path fill="#dca053" d="M119 219h10v5h-10z"/><path fill="#b6d7ba" d="M142 219h10v5h-10z"/>
+<path fill="#273449" d="M60 150h22v39H64v77H41v-10H28v-40h12v-39h9v-18h11zM194 151h26v16h13v44h15v44h-10v14h-25v-73h-19z"/><path fill="#e7e7da" d="M57 164h19v18H57v32H43v27h-8v-22h12v-38h10zM203 162h13v15h9v39h15v24h-19v-44h-18z"/><path fill="#e5a05b" d="M42 226h23v10H42zM216 226h24v10h-24z"/>
+<path fill="#f4eacf" d="M34 242h27v30H34zM217 242h26v30h-26z"/><path fill="#bdc6d4" d="M34 261h27v11H34zM217 261h26v11h-26z"/>
+<path fill="#253248" d="M87 278h105v42h-8v53h-46v-49h-7v49H85v-59h-7v-24h9z"/><path fill="#ede9d7" d="M94 286h86v26h-7v52h-27v-51h-23v51H94v-53h-8v-15h8z"/><path fill="#c6c9d8" d="M96 326h25v9H96zM147 326h25v9h-25z"/><path fill="#db9656" d="M94 344h28v9H94zM146 344h28v9h-28z"/>
+<path fill="#262e3e" d="M84 363h44v18H77v-10h7zM143 363h38v8h11v10h-49z"/><path fill="#e1e4d5" d="M86 363h36v10H84zM149 363h29v10h-29z"/>
+<g fill="#94c9cc"><path d="M106 238h3v15h-3zM113 239h3v12h-3zM120 238h3v15h-3zM127 239h3v12h-3z"/></g>
+</svg>

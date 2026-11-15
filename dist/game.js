@@ -23,7 +23,7 @@
   let path = [], target = null, targetStation = null, facing = 'down', walkTime = 0, time = 0;
   let last = performance.now(), hudTimer = 0, saveTimer = 0, activeStation = null, hoverStation = null;
   let view = { w: 1600, h: 900, scale: 1, x: 0, y: 0, dpr: 1 };
-  let world, intro, zoom = preferences.zoom;
+  let world, intro, trainer, zoom = preferences.zoom;
   $('zoom-value').textContent = `${Math.round(zoom*100)}%`;
   const minimap = $('minimap'), mini = minimap.getContext('2d');
   let toastTimer, dismissTimer, sound = false, audioContext, ambientGain, audioStarted = false;
@@ -31,12 +31,12 @@
   const icon = name => `<svg aria-hidden="true"><use href="#i-${name}"/></svg>`;
   const number = n => String(Math.floor(n)).padStart(2, '0');
   const missionCount = () => C.tasks.filter(t => state.tasks[t.id]).length;
-  const currentTask = () => C.tasks.find(t => !state.tasks[t.id]);
+  const currentTask = () => C.activeObjective(state);
   const insideShip = () => state.introComplete && state.location === 'ship';
   const activePlayer = () => insideShip() ? state.shipPlayer : state.player;
   const activeStations = () => insideShip() ? C.shipStations : C.stations;
   const cameraForScene = () => insideShip() ? C.shipCameraFor(state.shipPlayer,view.w,view.h,zoom) : C.cameraFor(state.player,view.w,view.h,zoom);
-  const isBlocked = () => paused || dialog.open || orbiDialog.open || hidden || !ready || !state.introComplete;
+  const isBlocked = () => paused || dialog.open || orbiDialog.open || trainer?.isOpen() || hidden || !ready || !state.introComplete;
 
   function syncIntro() {
     document.body.classList.toggle('story-opening',!state.introComplete);
@@ -82,6 +82,17 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('toast').hidden = true; }, 4600);
   }
   function updateHud() {
+    document.body.classList.toggle('day-one',state.survival.day===1);
+    document.body.classList.toggle('day-two',state.survival.day===2);
+    $('prep-emu-item').hidden=state.survival.day!==1;
+    $('prep-heading').textContent=state.survival.day===2?'STORM DAY · STAY INSIDE':'BEFORE YOU HEAD OUT';
+    $('prep-description').textContent=state.survival.day===2?'Breakfast, weather, then ORBI’s shelter drill.':'Breakfast, weather, and your first EVA lesson.';
+    $('survival-hud').hidden=!state.introComplete;
+    $('day-value').textContent=`DAY ${state.survival.day}`;
+    for(const stock of ['food','water']){
+      const value=state.survival[stock];$(`${stock}-stock-value`).textContent=`${Math.round(value)}%`;
+      $(`${stock}-stock-bar`).style.width=`${value}%`;$(`${stock}-stock-bar`).classList.toggle('low',value<=25);
+    }
     $('oxygen-value').innerHTML = `${Math.ceil(state.oxygen)}<span>%</span>`;
     $('energy-value').innerHTML = `${Math.ceil(state.energy)}<span>%</span>`;
     $('samples-value').textContent = number(state.samples);
@@ -92,15 +103,21 @@
     $('ship-orbi-nav').classList.toggle('incoming',C.orbiNeedsAttention(state));
     $('orbi-nav-indicator').textContent=C.orbiNeedsAttention(state)?'!':'↗';
     $('crew-name-label').textContent=state.orbi.nameKnown?C.playerName(state).toUpperCase():'NOVA BASE';
+    const preparing=insideShip()&&!!C.nextPreparation(state);
+    $('ship-prep').hidden=!preparing;document.body.classList.toggle('daily-prep-active',preparing);
+    for(const step of C.preparationSteps(state)){
+      $(`prep-${step.id}`).classList.toggle('done',step.done);
+      $(`prep-${step.id}-mark`).textContent=step.done?'✓':'○';
+    }
     $('oxygen-bar').style.width = `${state.oxygen}%`; $('energy-bar').style.width = `${state.energy}%`;
     $('oxygen-bar').style.background = state.oxygen < 20 ? '#f4a27b' : '#b4d2cc';
-    const count = missionCount(), task = currentTask();
-    $('nav-count').textContent = `${count}/5`;
-    $('step-number').textContent = task ? number(C.tasks.indexOf(task) + 1) : '✓';
-    $('step-label').textContent = task ? task.label : 'Expedition complete';
-    $('mission-title').textContent = count === 5 ? 'One step closer.' : 'Find a way home.';
-    $('mission-description').textContent = count === 5 ? 'The signal is out. Your story continues.' : 'Restore power. Find a signal.';
-    [...$('progress-segments').children].forEach((el, i) => { el.className = state.tasks[C.tasks[i].id] ? 'done' : C.tasks[i] === task ? 'current' : ''; });
+    const goals=C.dayGoals(state),done=goals.filter(goal=>goal.done).length,task=currentTask();
+    $('nav-count').textContent = `${done}/${goals.length}`;
+    $('step-number').textContent = done===goals.length?'✓':number(done+1);
+    $('step-label').textContent = task.label;
+    $('mission-title').textContent = C.dayTitle(state);
+    $('mission-description').textContent = `DAY ${state.survival.day} · ${state.survival.day===1?'Find supplies. Get to know the outpost.':'Breakfast. Weather. A little progress.'}`;
+    [...$('progress-segments').children].forEach((el, i) => {el.hidden=i>=goals.length;el.className=goals[i]?.done?'done':i===done?'current':'';});
   }
 
   function resize() {
@@ -144,7 +161,7 @@
 
   for (let i = 0; i < 35; i++) motes.push({ x: Math.random() * C.W, y: 270 + Math.random() * 600, speed: 3 + Math.random() * 12, size: Math.random() > .8 ? 3 : 2, alpha: .1 + Math.random() * .22 });
   function drawLabel(s, active) {
-    const current = insideShip() ? s.id==='earth-uplink'&&state.earthSignal.phase==='incoming'||s.id==='orbi'&&C.orbiNeedsAttention(state) : currentTask()?.id === s.id;
+    const current = insideShip() ? s.id==='earth-uplink'&&state.earthSignal.phase==='incoming'||s.id==='orbi'&&C.orbiNeedsAttention(state)||s.id===C.nextPreparation(state)?.station : currentTask()?.id === s.id;
     const completed = s.id==='earth-uplink'?state.earthSignal.phase==='connected':s.id==='orbi'?state.orbi.phase==='complete':!!state.tasks[s.id];
     ctx.font = '10px Consolas, monospace';
     const textWidth = ctx.measureText(s.name).width, x = s.labelX, y = s.labelY;
@@ -184,7 +201,7 @@
     ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#111b29';ctx.fillRect(0,0,canvas.width,canvas.height);
     ctx.setTransform(scale, 0, 0, scale, -view.x * scale, -view.y * scale);
     ctx.imageSmoothingEnabled = false;
-    if(insideShip())intro.drawCabin(ctx,time,reducedMotion,state.earthSignal.phase,state.orbi.phase);
+    if(insideShip())intro.drawCabin(ctx,time,reducedMotion,state.earthSignal.phase,state.orbi.phase,state.preparation,C.weatherFor(state.survival.day));
     else world.draw(ctx, { x: view.x, y: view.y, w: view.w / view.scale, h: view.h / view.scale });
     // Wind, footprints, and destination markers are real-time layers over the map.
     for (const foot of footsteps) {
@@ -252,6 +269,7 @@
   function updateInteraction() {
     if(!state.introComplete){$('interact-prompt').hidden=true;$('destination-beacon').hidden=true;return;}
     activeStation = nearestStation();
+    if(activeStation&&!insideShip()&&C.recordVisit(state,activeStation.id)){save();updateHud();}
     $('interact-prompt').hidden = !activeStation || isBlocked();
     if (activeStation) {
       $('interact-label').textContent = activeStation.name.toLowerCase().replace(/\b\w/g, x => x.toUpperCase());
@@ -274,7 +292,7 @@
     if(insideShip()){
       const w=minimap.width,h=minimap.height,s=Math.min((w-12)/C.SHIP.width,(h-12)/C.SHIP.height),ox=(w-C.SHIP.width*s)/2,oy=(h-C.SHIP.height*s)/2;
       mini.fillStyle='#1c2d3b';mini.fillRect(0,0,w,h);mini.strokeStyle='#7d9d9c';mini.strokeRect(ox,oy,C.SHIP.width*s,C.SHIP.height*s);
-      mini.fillStyle='#536c77';for(const [x,y,rw,rh] of [[250,295,245,342],[90,310,170,169],[733,302,201,226],[542,288,174,159]])mini.fillRect(ox+x*s,oy+y*s,rw*s,rh*s);
+      mini.fillStyle='#536c77';for(const [x,y,rw,rh] of [[250,295,245,342],[90,310,170,169],[733,302,201,226],[542,288,174,159],[270,690,175,56],[810,613,140,103]])mini.fillRect(ox+x*s,oy+y*s,rw*s,rh*s);
       for(const station of C.shipStations){mini.fillStyle=station.id==='orbi'&&C.orbiNeedsAttention(state)?'#ffcf87':station.id==='earth-uplink'?'#93d8c4':station.id==='airlock'?'#edb878':'#a7b7a4';mini.fillRect(ox+station.ax*s-2,oy+station.ay*s-2,4,4);}
       mini.fillStyle='#ffe3a9';mini.fillRect(ox+state.shipPlayer.x*s-2,oy+state.shipPlayer.y*s-2,4,4);return;
     }
@@ -329,6 +347,8 @@
   $('earth-notification').addEventListener('click',()=>$('ship-earth-nav').click());
   $('ship-orbi-nav').addEventListener('click',()=>{const s=C.shipStations.find(s=>s.id==='orbi');setDestination({x:s.ax,y:s.ay},s);});
   $('orbi-notification').addEventListener('click',()=>{if(!isBlocked())openOrbi();});
+  function walkToShipStation(id){const s=C.shipStations.find(s=>s.id===id);setDestination({x:s.ax,y:s.ay},s);}
+  for(const id of ['eat','drink','weather','emu'])$(`prep-${id}`).addEventListener('click',()=>{if(id==='emu')openTraining('emu');else walkToShipStation(id==='weather'?'weather':'galley');});
   $('ship-exit-nav').addEventListener('click',()=>{const s=C.shipStations.find(s=>s.id==='airlock');setDestination({x:s.ax,y:s.ay},s);});
   $('destination-beacon').addEventListener('click', () => {
     const station = C.stations.find(s => s.id === currentTask()?.id);
@@ -455,10 +475,11 @@
     greenhouse: { icon: 'leaf', eyebrow: 'LIFE SUPPORT · GREENHOUSE', title: 'Something green. On Mars.', body: 'There’s a whole little world under this dome. Start the air and water systems, and give these plants a chance to grow.', stat: 'Oxygen replenished · Life support online', action: 'Start greenhouse life support', message: 'Greenhouse thriving. Your suit oxygen is full.' },
     crystals: { icon: 'crystal', eyebrow: 'FIELD RESEARCH · ICE DEPOSIT', title: 'Beneath the red dust.', body: 'These blue crystals hold traces of water ice. Gather a few samples for the uplink — a small discovery with a big story to tell.', stat: '+3 water-ice samples · Research collected', action: 'Collect the ice samples', message: 'Three ice samples collected. Earth will want to see this.' },
     habitat: { icon: 'home', eyebrow: 'COMMUNICATIONS · NOVA HABITAT', title: 'A little hello to Earth.', body: 'Your new home is coming to life. Send the outpost report and your ice research through the satellite uplink. Someone, somewhere, is waiting to hear from you.', stat: 'Research uplink · Suit fully replenished', action: 'Transmit the outpost report', message: 'Transmission received on Earth. They’re proud of you.' },
-    rocket: { icon: 'rocket', eyebrow: 'EXPEDITION CONTROL · LANDING PAD', title: 'One giant beginning.', body: 'Power restored. Plants growing. A new discovery sent home. Head back to the landing pad to sign off on your first day at the outpost.', stat: 'Expedition 004 · Ready to complete', action: 'Complete the expedition', message: 'Expedition complete. You’ve made a little home on Mars.' }
+    rocket: { icon: 'rocket', eyebrow: 'EXPEDITION CONTROL · LANDING PAD', title: 'One giant beginning.', body: 'Power restored. Plants growing. A new discovery sent home. Head back to the landing pad to sign off on this expedition.', stat: 'Expedition 004 · Ready to complete', action: 'Complete the expedition', message: 'Expedition complete. You’ve made a little home on Mars.' }
   };
   function changeLocation(entering) {
     if(busy)return;
+    if(!entering&&!C.canExitShip(state)){airlockDialog();return;}
     if(dialog.open)closeDialog();
     entering?C.enterShip(state):C.exitShip(state);
     keys.clear();path=[];target=null;targetStation=null;activeStation=null;hoverStation=null;moving=false;facing=entering?'up':'down';
@@ -489,15 +510,19 @@
     $('orbi-speech').textContent=line.text;
     $('orbi-caption').textContent=line.caption;
     $('orbi-memory-name').textContent=C.playerName(state);
-    $('orbi-memory-label').textContent=state.orbi.step===0?'A NAME TO REMEMBER':'IDENTITY RECOVERED';
+    $('orbi-memory-label').textContent=state.survival.warningPending?'SUPPLY ALERT':state.orbi.step===0?'A NAME TO REMEMBER':'IDENTITY RECOVERED';
     const replies=$('orbi-replies');replies.replaceChildren();
     line.choices.forEach((text,index)=>{
       const button=document.createElement('button');button.textContent=text;
       button.addEventListener('click',()=>{
-        if(state.orbi.phase==='complete'){closeOrbi();return;}
+        if(state.orbi.phase==='complete'){
+          if(state.preparation.weatherChecked&&state.survival.day===2){closeOrbi();openTraining('storm');return;}
+          if(state.preparation.weatherChecked&&state.survival.day===1&&!C.emuComplete(state)){closeOrbi();openTraining('emu');return;}
+          if(state.survival.warningPending)C.acknowledgeSupplies(state);closeOrbi();return;
+        }
         C.advanceOrbi(state,state.orbi.step===0&&index===1?'tasks':'');save();updateHud();
         if(state.orbi.phase==='complete'){
-          closeOrbi();toast(`${C.playerName(state)}. That’s your name. ORBI’s first task is waiting in your mission log.`);
+          closeOrbi();toast(`${C.playerName(state)}. That’s your name. First, eat and drink in the galley. Then check the weather.`);
         }else renderOrbi();
       });
       replies.append(button);
@@ -518,25 +543,100 @@
   }
   $('orbi-close').addEventListener('click',closeOrbi);
   orbiDialog.addEventListener('cancel',event=>{event.preventDefault();closeOrbi();});
+  function openTraining(mode){
+    if(dialog.open)closeDialog();if(orbiDialog.open)closeOrbi();
+    keys.clear();path=[];target=null;targetStation=null;moving=false;
+    trainer.open(mode);updateInteraction();
+  }
+  function preparationList(){return `<ul class="preflight-list">${C.preparationSteps(state).map(step=>`<li class="${step.done?'done':''}"><span>${step.done?'✓':'○'}</span>${step.label}</li>`).join('')}</ul>`;}
+  function lowSupplyDialog(){
+    showDialog('ORBI · SUPPLIES RUNNING LOW',`<h1 id="dialog-title">That won’t last fifteen days.</h1><div class="supply-alert"><strong>FOOD ${state.survival.food}% <span>·</span> WATER ${state.survival.water}%</strong><p>“Mira, breakfast used some of our last supplies. We don’t have enough food and water for the rescue wait.”</p></div><p class="dialog-body">${state.survival.day===1?'“Day 1 is for exploring. Finish breakfast, check the weather, and find the food and water storage building. Visit a couple of other outpost locations while you’re out.”':'“Finish breakfast and check the weather. Visit the supply depot today so we have enough for tomorrow.”'}</p>${actionButton('Understood · Finish breakfast','supply-warning-ack')}`);
+    $('supply-warning-ack').onclick=()=>{C.acknowledgeSupplies(state);save();updateHud();galleyDialog();};
+  }
+  function galleyDialog(){
+    if(state.orbi.phase!=='complete'){
+      showDialog('SPACESHIP · GALLEY',`<h1 id="dialog-title">A place for breakfast.</h1><p class="dialog-body">A warm meal and drinking water are waiting here. First, find out what ORBI wants to tell you.</p>${actionButton('Back to the cabin')}`);
+      $('dialog-action').onclick=closeDialog;return;
+    }
+    const p=state.preparation,both=p.ate&&p.drank;
+    showDialog('SPACESHIP · GALLEY',`<h1 id="dialog-title">A little fuel for you.</h1><p class="dialog-body">You’ve been asleep for a long time. Have a warm meal and some water before taking on the day.</p><div class="galley-tray"><svg viewBox="0 0 120 88" aria-hidden="true"><path fill="#bbbea3" d="M1 29h85v51H1z"/><path fill="#e7dfba" d="M7 35h73v37H7z"/><path fill="#8eaa62" d="M13 40h25v25H13z"/><path fill="#ca9b5e" d="M43 40h31v25H43z"/><path fill="#edd18b" d="M48 44h21v5H48z"/><path fill="#cce6d8" d="M93 18h22v58H93z"/><path fill="#72b6cc" d="M97 31h14v40H97z"/><path fill="#779398" d="M98 12h12v8H98z"/></svg><div><strong>Today’s breakfast</strong><small>${p.ate?'✓ Meal finished':'Warm vegetable ration · +15% energy'}</small><small>${p.drank?'✓ Water finished':'Fresh drinking water'}</small></div></div><div class="galley-actions"><button id="galley-eat" ${p.ate?'disabled':''}>${p.ate?'✓ Meal finished':'Eat breakfast'}</button><button id="galley-drink" ${p.drank?'disabled':''}>${p.drank?'✓ Hydrated':'Drink water'}</button></div><p class="dialog-body">${both?'Feeling better. Next, check today’s weather at the screen beside the airlock.':'Take a moment for both food and water.'}</p>${actionButton(both?'Go to the weather screen':'Back to the cabin')}`);
+    $('galley-eat').disabled=p.ate||state.survival.food<10;
+    $('galley-drink').disabled=p.drank||state.survival.water<15;
+    $('galley-eat').onclick=()=>{C.eatMeal(state);save();updateHud();state.survival.warningPending?lowSupplyDialog():galleyDialog();};
+    $('galley-drink').onclick=()=>{C.drinkWater(state);save();updateHud();state.survival.warningPending?lowSupplyDialog():galleyDialog();};
+    $('dialog-action').onclick=()=>{closeDialog();if(both)walkToShipStation('weather');};
+  }
+  function weatherDialog(){
+    const w=C.weatherFor(state.survival.day),p=state.preparation,canCheck=state.orbi.phase==='complete'&&p.ate&&p.drank;
+    const dataset=trainer.donki.data;
+    showDialog('SPACESHIP · WEATHER & SPACE WEATHER',`<div class="weather-report"><div><span>SIMULATED MARS CONDITIONS</span><span>SOL ${number(w.sol)}</span></div><div class="weather-overview">${icon('sun')}<div><strong>${w.summary}</strong><small>${w.storm?'DAY 2 TRAINING LOCKDOWN · NO EVA':'GENERATED GAME WEATHER'}</small></div></div><div class="weather-metrics"><div><span>TEMPERATURE</span><strong>${w.temperature}°</strong><small>C</small></div><div><span>WIND</span><strong>${w.wind}</strong><small> km/h</small></div><div><span>VISIBILITY</span><strong>${w.visibility}</strong></div></div><p>${w.advice}</p></div><h1 id="dialog-title">${w.storm?'A day to stay inside.':'A look at the sky.'}</h1><p class="weather-source-note">NASA DONKI tracks solar activity, not Mars air temperature or wind. ${w.storm?`ORBI’s ${dataset.displayMode==='historical'?'historical':'dated'} NASA case includes real FLR, CME, SEP and notification records from ${dataset.range.startDate} to ${dataset.range.endDate}. The Mars arrival and airlock lockout are simulated.`:'These atmospheric values are simulated. After checking the weather, learn the EMU with ORBI before your first EVA.'}</p><p class="dialog-body">${canCheck?w.storm?'Review the warning, then report to ORBI for the indoor solar-storm mission.':'Review today’s conditions before the EMU lesson.':state.orbi.phase==='complete'?'Have breakfast and drink water before finishing the weather check.':'ORBI will help you plan your day.'}</p>${actionButton(canCheck?'Confirm weather check':state.orbi.phase==='complete'?'Go to the galley':'Back to the cabin')}`);
+    $('dialog-action').onclick=()=>{
+      if(canCheck){
+        C.checkWeather(state);save();closeDialog();updateHud();
+        if(state.survival.day===2){toast('Day 2 solar-storm drill. No EVA today. ORBI has your briefing.');openOrbi();}
+        else if(state.survival.day===1&&!C.emuComplete(state)){
+          showDialog('ORBI · BEFORE YOUR FIRST EVA',`<h1 id="dialog-title">First, learn your spacesuit.</h1><p class="dialog-body">The weather check is done. Now match the EMU components to their roles before opening the airlock.</p>${actionButton('Learn & assemble the EMU','start-emu')}<button class="dialog-secondary" id="emu-later">Back to the cabin</button>`);
+          $('start-emu').onclick=()=>openTraining('emu');$('emu-later').onclick=closeDialog;
+        }else toast('Today’s weather is checked. Review your mission before heading out.');
+      }
+      else{closeDialog();if(state.orbi.phase==='complete')walkToShipStation('galley');}
+    };
+  }
+  function airlockDialog(){
+    if(state.survival.day===2){
+      const checked=state.preparation.weatherChecked;
+      showDialog('DAY 2 · AIRLOCK LOCKED',`<div class="dialog-icon">${icon('rocket')}</div><h1 id="dialog-title">No EVA during this storm.</h1><p class="dialog-body">${checked?'ORBI has set a shelter-only day. The simulated radiation alert keeps the airlock closed even after the training mission.':'Check today’s weather warning and report to ORBI. Day 2 is reserved for indoor storm training.'}</p><p class="weather-source-note">The Day 2 Mars arrival and lockout are simulated game effects. Real NASA observations are reviewed separately in ORBI’s briefing.</p><button class="dialog-action" disabled><span>Step outside · Storm lockdown</span></button><button class="dialog-secondary" id="storm-entry">${checked?'Open solar-storm training':'Go to the weather screen'}</button>`);
+      $('storm-entry').onclick=()=>{closeDialog();checked?openTraining('storm'):walkToShipStation('weather');};return;
+    }
+    if(state.survival.day===1&&state.orbi.phase!=='complete'){
+      showDialog('SPACESHIP · FIRST EVA PREPARATION',`<h1 id="dialog-title">Get your bearings first.</h1><p class="dialog-body">Follow the Earth call and speak with ORBI. Then have breakfast, check the weather and learn the EMU before going outside.</p>${actionButton('Back to the cabin')}`);$('dialog-action').onclick=closeDialog;return;
+    }
+    const next=C.nextPreparation(state);
+    if(next){
+      showDialog('SPACESHIP · PREPARE FOR THE DAY',`<div class="dialog-icon">${icon('rocket')}</div><h1 id="dialog-title">First, take care of yourself.</h1><p class="dialog-body">Before fieldwork, eat a meal, drink water, and check today’s weather. ORBI wants you to be ready.</p>${preparationList()}<button class="dialog-action" disabled><span>Step outside · Preparation needed</span></button><button class="dialog-secondary" id="prepare-next">${next.station==='galley'?'Go to the galley':'Go to the weather screen'}</button>`);
+      if(next.id==='emu')$('prepare-next').textContent='Learn the EMU with ORBI';
+      $('prepare-next').onclick=()=>{closeDialog();next.id==='emu'?openTraining('emu'):walkToShipStation(next.station);};return;
+    }
+    showDialog('SPACESHIP · AIRLOCK',`<div class="dialog-icon">${icon('rocket')}</div><h1 id="dialog-title">The red world is waiting.</h1><p class="dialog-body">${state.preparation.weatherChecked?'Breakfast finished. Water topped up. Today’s weather is checked. You’re ready for your outpost tasks.':'The hatch leads to the rocket’s landing pad. You can come back inside through this same airlock at any time.'}</p>${actionButton('Step outside')}`);
+    $('dialog-action').onclick=()=>changeLocation(false);
+  }
+  function sleepDialog(){
+    if(state.orbi.phase!=='complete'){
+      showDialog('SPACESHIP · SLEEP POD',`<h1 id="dialog-title">This is where I woke up.</h1><p class="dialog-body">The pillow is still warm. Someone wanted you to survive this. First, find your bearings and talk to ORBI.</p>${actionButton('Keep looking')}`);
+      $('dialog-action').onclick=closeDialog;return;
+    }
+    const status=C.restStatus(state),goals=C.dayGoals(state);
+    showDialog(`END OF DAY ${state.survival.day} · SLEEP POD`,`<h1 id="dialog-title">A little rest, a new day.</h1><ul class="preflight-list">${goals.map(g=>`<li class="${g.done?'done':''}"><span>${g.done?'✓':'○'}</span>${g.label}</li>`).join('')}</ul><p class="dialog-body">${status.reason}</p><div class="dialog-stat">Food ${state.survival.food}% · Water ${state.survival.water}% · Your name and discoveries stay with you.</div><button class="dialog-action" id="sleep-next-day" ${status.allowed?'':'disabled'}><span>Sleep · Start Day ${state.survival.day+1}</span>${icon('arrow')}</button><button class="dialog-secondary" id="sleep-back">Back to the cabin</button>`);
+    $('sleep-next-day').onclick=()=>{
+      if(!C.startNextDay(state))return;
+      closeDialog();keys.clear();path=[];target=null;targetStation=null;footsteps.length=0;facing='down';resize();updateHud();updateInteraction();save();render();
+      showDialog(`DAY ${state.survival.day} · GOOD MORNING, ${C.playerName(state).toUpperCase()}`,`<h1 id="dialog-title">A new day on Mars.</h1><p class="dialog-body">${C.dayTitle(state)} Start with food, water, and today’s weather. Then: ${C.activeObjective(state).label.toLowerCase()}.</p>${actionButton('Start the day')}`);
+      $('dialog-action').onclick=closeDialog;
+    };
+    $('sleep-back').onclick=closeDialog;
+  }
   function interactShip(station) {
     if(station.id==='earth-uplink'){earthDialog();return;}
     if(station.id==='orbi'){openOrbi();return;}
-    if(station.id==='airlock'){
-      showDialog('SPACESHIP · AIRLOCK',`<div class="dialog-icon">${icon('rocket')}</div><h1 id="dialog-title">The red world is waiting.</h1><p class="dialog-body">The hatch leads to the rocket’s landing pad. Step outside to explore Mars. You can come back inside through this same airlock at any time.</p>${actionButton('Step outside')}`);
-      $('dialog-action').onclick=()=>changeLocation(false);return;
-    }
+    if(station.id==='galley'){galleyDialog();return;}
+    if(station.id==='weather'){weatherDialog();return;}
+    if(station.id==='airlock'){airlockDialog();return;}
     if(station.id==='ship-support'){
       showDialog('SPACESHIP · LIFE SUPPORT',`<div class="dialog-icon">${icon('leaf')}</div><h1 id="dialog-title">A moment to breathe.</h1><p class="dialog-body">The ship’s backup life support is still working. Refill your oxygen and recharge your suit before heading back out.</p><div class="dialog-stat">${icon('bolt')}Oxygen and suit energy restored to 100%</div>${actionButton('Refill my suit')}`);
       $('dialog-action').onclick=()=>{state.oxygen=100;state.energy=100;closeDialog();updateHud();toast('Suit replenished. You’re ready to head out.');};return;
     }
-    showDialog('SPACESHIP · SLEEP POD',`<div class="dialog-icon">${icon('book')}</div><h1 id="dialog-title">This is where I woke up.</h1><p class="dialog-body">The pillow is still warm. There’s no name on the pod. Whatever happened before, someone wanted you to survive it.</p>${actionButton('Keep looking')}`);
-    $('dialog-action').onclick=closeDialog;
+    sleepDialog();
   }
   function interact(station = activeStation) {
     if (!station || isBlocked()) return;
     dismissWelcome(); chirp(440, .05);
     const id = station.id;
     if(insideShip()){interactShip(station);return;}
+    if(id==='storage'){
+      const claimed=state.survival.storageClaimedDay===state.survival.day;
+      showDialog('EXPLORATION · FOOD & WATER STORAGE',`<div class="dialog-icon">${icon('home')}</div><h1 id="dialog-title">Something to live on.</h1><p class="dialog-body">Sealed food crates. Fresh water tanks. The depot’s automated stores can prepare one supply load each day. You won’t have to face this planet on an empty stomach.</p><div class="supply-alert"><strong>FOOD ${state.survival.food}% · WATER ${state.survival.water}%</strong><p>${claimed?'Today’s supplies are loaded. Come back on the next day.':'Collect up to +70% food and +80% water. Reserves hold up to 100% each.'}</p></div>${actionButton(claimed?'Back to exploring':'Load food and water','storage-collect')}`);
+      $('storage-collect').onclick=()=>{if(!claimed)C.collectSupplies(state);save();updateHud();closeDialog();toast('Food and water secured. Explore the outpost, then return to your sleep pod when the day is done.');};return;
+    }
     if(id==='rocket'){
       const canFinish=C.canComplete(state,'rocket')&&!state.tasks.rocket;
       showDialog('LANDING PAD · NOVA SPACESHIP',`<div class="dialog-icon">${icon('rocket')}</div><h1 id="dialog-title">Back aboard?</h1><p class="dialog-body">Your spaceship’s airlock is open. Explore the cabin, top up your suit, or use the Earth communications screen.</p><div class="dialog-stat">${icon('home')}Earth: ${C.earthStatus(state).toLowerCase()} · Cabin accessible</div>${actionButton('Enter spaceship')}${canFinish?'<button class="dialog-secondary" id="finish-expedition"><span>Complete the expedition</span></button>':'<button class="dialog-secondary" id="stay-outside">Stay outside</button>'}`);
@@ -550,7 +650,7 @@
       $('dialog-action').onclick = state.rover ? closeDialog : () => perform(id, 'Rover survey downloaded. Two bonus samples collected.'); return;
     }
     if (id === 'flag') {
-      showDialog('PERSONAL LOG · SOL 011', `<div class="dialog-icon">${icon('pin')}</div><h1 id="dialog-title">A very long way from home.</h1><p class="dialog-body">“The sky here is different. The silence, too. But today I saw the first green leaves in the dome, and for a moment, the distance didn’t seem so big.”</p><div class="dialog-stat">${icon('book')}${state.flag ? 'Personal log recorded · Sol 011' : 'A moment worth remembering'}</div>${actionButton(state.flag ? 'Back to exploring' : 'Record a personal log')}`);
+      showDialog(`PERSONAL LOG · DAY ${state.survival.day}`, `<div class="dialog-icon">${icon('pin')}</div><h1 id="dialog-title">A very long way from home.</h1><p class="dialog-body">“The sky here is different. The silence, too. But the outpost is beginning to feel familiar, and for a moment, the distance doesn’t seem so big.”</p><div class="dialog-stat">${icon('book')}${state.flag ? 'Personal log recorded' : 'A moment worth remembering'}</div>${actionButton(state.flag ? 'Back to exploring' : 'Record a personal log')}`);
       $('dialog-action').onclick = state.flag ? closeDialog : () => perform(id, 'Personal log recorded. A moment of Mars, kept forever.'); return;
     }
     const copy = stationCopy[id], complete = state.tasks[id], allowed = C.canComplete(state, id);
@@ -573,15 +673,22 @@
   function showMissions() {
     if (busy) return;
     dismissWelcome();
-    const current = currentTask();
-    const rows = C.tasks.map((t, i) => `<li class="${state.tasks[t.id] ? 'completed' : t === current ? 'current' : ''}"><span class="number">${state.tasks[t.id] ? '✓' : number(i + 1)}</span><span><strong>${t.label}</strong><small>${t.detail}</small></span>${state.tasks[t.id] ? icon('check') : ''}</li>`).join('');
-    showDialog('MISSION LOG · EXPEDITION 004', `<h1 id="dialog-title">A place to call home.</h1><p class="dialog-body">Every little step makes this red planet feel a bit more like home.</p><ul class="journal-list">${rows}</ul><p class="journal-meta">${missionCount()} OF 5 COMPLETE${state.flag ? ' · PERSONAL LOG RECORDED' : ''}</p>${actionButton(current ? 'Show my next destination' : 'Back to the outpost')}`);
-    $('dialog-action').onclick = () => { closeDialog(); if (current) { const s = insideShip()?C.shipStations.find(s=>s.id==='airlock'):C.stations.find(s => s.id === current.id); setDestination({ x: s.ax, y: s.ay }, s); } };
+    const current=currentTask(),goals=C.dayGoals(state),done=goals.every(g=>g.done)&&current.id==='rocket';
+    const rows=goals.map((g,i)=>`<li class="${g.done?'completed':'current'}"><span class="number">${g.done?'✓':number(i+1)}</span><span><strong>${g.label}</strong><small>${g.id==='explore'?`${state.survival.visited.filter(id=>id!=='storage').length} locations visited`:g.station==='storage'?'Follow the marker to the warehouse. Load food and water there.':'Follow the station marker, then return to the spaceship.'}</small></span></li>`).join('');
+    const places=!insideShip()?`<div class="station-index">${C.stations.map(s=>`<button data-station="${s.id}"><span>${s.name}</span><small>${state.survival.visited.includes(s.id)?'VISITED':'EXPLORE'}</small></button>`).join('')}</div>`:'';
+    showDialog(`DAY ${state.survival.day} · MISSION LOG`,`<h1 id="dialog-title">${C.dayTitle(state)}</h1><p class="dialog-body">${state.survival.day===1?'Today is about finding your way around. Food and water are scarce. Find storage, visit other outpost locations, and return to the ship to rest.':'Prepare for the day, complete your fieldwork, and return to the sleep pod when you’re ready for tomorrow.'}</p><ul class="journal-list">${rows}</ul><p class="journal-meta">FOOD ${state.survival.food}% · WATER ${state.survival.water}% · ${missionCount()} / 5 OUTPOST SYSTEMS RESTORED</p>${places}${actionButton(done&&insideShip()?'Go to the sleep pod':'Show my next destination')}`);
+    $('dialog-action').onclick=()=>{
+      closeDialog();
+      const s=insideShip()?C.shipStations.find(s=>s.id===(C.nextPreparation(state)?.station||(done?'sleep-pod':state.survival.day===2?'orbi':'airlock'))):C.stations.find(s=>s.id===current.id);
+      setDestination({x:s.ax,y:s.ay},s);
+    };
+    for(const button of dialog.querySelectorAll('[data-station]'))button.onclick=()=>{const s=C.stations.find(s=>s.id===button.dataset.station);closeDialog();setDestination({x:s.ax,y:s.ay},s);};
   }
+  $('day-journal').addEventListener('click',showMissions);
   function showGuide() {
     if (busy) return;
     showDialog('FIELD GUIDE · GETTING YOUR BEARINGS', `<div class="dialog-icon">${icon('book')}</div><h1 id="dialog-title">A small guide to a big planet.</h1>
-      <p class="dialog-body">${insideShip()?'Walk around the cabin. The right-hand screen connects to Earth; the airlock leads outside. ORBI’s TV is beside the sleep pod. Inspect it when its ! appears.':'The desert continues in every direction. Return to the landing pad and choose Enter spaceship whenever you want to go back inside.'}</p>
+      <p class="dialog-body">${insideShip()?'Prepare with breakfast, water, and the weather screen. Day 1 also requires ORBI’s EMU matching lesson. Day 2 stays indoors for the solar-storm drill. Tap the checklist or ORBI’s TV for your next step.':'Explore the desert and follow the day’s objective marker. Return through the rocket’s airlock, then rest in the ship to begin the next day.'}</p>
       <div class="guide-row"><span>Move your astronaut</span><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows</span></div>
       <div class="guide-row"><span>Walk to a destination</span><span>CLICK / TAP</span></div>
       <div class="guide-row"><span>Interact with a nearby place</span><span><kbd>E</kbd> / tap prompt</span></div>
@@ -596,8 +703,13 @@
     if (busy) return;
     if (dialog.open) { closeDialog(); return; }
     paused = true;
-    showDialog('EXPEDITION PAUSED', `<div class="dialog-icon">${icon('pause')}</div><h1 id="dialog-title">Take a breath.</h1><p class="dialog-body">${state.introComplete?'The red planet will still be here. Your progress is saved, and your suit systems are on standby.':'The spaceship is quiet. Your place in the story is saved.'}</p><div class="dialog-stat">${icon('check')}${state.introComplete?`${missionCount()} / 5 tasks completed · ${number(state.samples)} samples collected`:'PROLOGUE · THE AWAKENING'}</div>${actionButton(state.introComplete?'Back to the outpost':'Back to the story')}<a class="dialog-secondary" href="index.html">Return to main menu</a><button class="dialog-secondary" id="reset-button">Start a fresh expedition</button>`);
+    showDialog('EXPEDITION PAUSED', `<div class="dialog-icon">${icon('pause')}</div><h1 id="dialog-title">Take a breath.</h1><p class="dialog-body">${state.introComplete?'The red planet will still be here. Your progress is saved, and your suit systems are on standby.':'The spaceship is quiet. Your place in the story is saved.'}</p><div class="dialog-stat">${icon('check')}${state.introComplete?`${missionCount()} / 5 tasks completed · ${number(state.samples)} samples collected`:'PROLOGUE · THE AWAKENING'}</div>${actionButton(state.introComplete?'Back to the outpost':'Back to the story')}<button class="dialog-secondary" id="replay-story">↺ Replay story from the beginning</button><p class="replay-story-note">Replay waking up, the Earth call, and ORBI. Your missions and samples are kept.</p><a class="dialog-secondary" href="index.html">Return to main menu</a><button class="dialog-secondary" id="reset-button">Start a fresh expedition</button>`);
     $('dialog-action').onclick = closeDialog;
+    $('replay-story').onclick=()=>{
+      C.replayStory(state);footsteps.length=0;sparks.length=0;facing='down';walkTime=0;
+      clearTimeout(toastTimer);$('toast').hidden=true;
+      closeDialog();syncIntro();resize();updateHud();updateInteraction();save();render();
+    };
     $('reset-button').onclick = confirmReset;
   }
   function confirmReset() {
@@ -609,7 +721,7 @@
     $('cancel-reset').onclick = () => { closeDialog(); };
   }
   function showSuccess() {
-    showDialog('EXPEDITION 004 · COMPLETE', `<div class="success-stars" aria-hidden="true">✦ ✧ ✦</div><h1 id="dialog-title">One small outpost.<br>One giant beginning.</h1><p class="dialog-body">You brought power, a little green, and a new discovery to a quiet corner of Mars. That’s a pretty good first day.</p><div class="dialog-stat">${icon('check')}5 / 5 missions · ${number(state.samples)} samples · ${Math.max(1, Math.round(state.seconds / 60))} min exploring</div>${actionButton('Stay a little longer')}<button class="dialog-secondary" id="new-expedition">Begin a new expedition</button>`);
+    showDialog('EXPEDITION 004 · COMPLETE', `<div class="success-stars" aria-hidden="true">✦ ✧ ✦</div><h1 id="dialog-title">One small outpost.<br>One giant beginning.</h1><p class="dialog-body">You brought power, a little green, and a new discovery to a quiet corner of Mars. That’s a pretty good beginning.</p><div class="dialog-stat">${icon('check')}Day ${state.survival.day} · 5 / 5 missions · ${number(state.samples)} samples</div>${actionButton('Stay a little longer')}<button class="dialog-secondary" id="new-expedition">Begin a new expedition</button>`);
     $('dialog-action').onclick = closeDialog; $('new-expedition').onclick = confirmReset;
   }
   $('mission-card').addEventListener('click', showMissions);
@@ -626,6 +738,7 @@
   window.addEventListener('keydown', event => {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     const key = event.key.toLowerCase();
+    if(trainer?.isOpen())return;
     if(orbiDialog.open){
       if(['e',' ','enter'].includes(key)){
         if(event.target.closest?.('button')&&event.target.id==='orbi-close'&&key!=='e')return;
@@ -704,5 +817,6 @@
     window.addEventListener('pointerdown',startPreferredSound);
     window.addEventListener('keydown',startPreferredSound);
   }
+  trainer=new window.MissionTraining({core:C,getState:()=>state,save,onChange:()=>updateHud(),onClose:()=>{keys.clear();updateHud();updateInteraction();canvas.focus({preventScroll:true});save();}});
   updateHud(); resize(); requestAnimationFrame(frame);
 })();
