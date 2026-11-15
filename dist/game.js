@@ -19,7 +19,7 @@
   let state;
   try { state = C.normalizeState(JSON.parse(localStorage.getItem(SAVE_KEY))); } catch { state = C.freshState(); }
   document.body.classList.toggle('story-opening',!state.introComplete);
-  let paused = false, hidden = false, moving = false, ready = false, busy = false;
+  let paused = false, hidden = false, moving = false, ready = false, busy = false, sleeping = false;
   let path = [], target = null, targetStation = null, facing = 'down', walkTime = 0, time = 0;
   let last = performance.now(), hudTimer = 0, saveTimer = 0, activeStation = null, hoverStation = null;
   let view = { w: 1600, h: 900, scale: 1, x: 0, y: 0, dpr: 1 };
@@ -420,6 +420,7 @@
     else if (Math.abs(dy) > .01) facing = dy > 0 ? 'down' : 'up';
   }
   function tick(dt) {
+    if(sleeping)return;
     time += dt;
     if(ready&&!state.death&&!paused&&!hidden){
       const signalEvent=C.tickEarthSignal(state,dt);
@@ -434,8 +435,7 @@
           toast('System error. The Earth signal is breaking up…');
         }else toast('Earth connection lost. The last transmission is saved at the console.');
       }
-      if(C.tickOrbi(state,dt)==='orbi-ready'){
-        if(dialog.open&&$('earth-signal'))closeDialog();
+      if(!(dialog.open&&$('earth-signal'))&&C.tickOrbi(state,dt)==='orbi-ready'){
         save();updateHud();updateInteraction();chirp(523,.18);
         toast('The nearby TV lights up. ORBI has a message for you — look for the !');
       }
@@ -664,9 +664,23 @@
     }
     const status=C.restStatus(state),goals=C.dayGoals(state);
     showDialog(`END OF DAY ${state.survival.day} · SLEEP POD`,`<h1 id="dialog-title">A little rest, a new day.</h1><ul class="preflight-list">${goals.map(g=>`<li class="${g.done?'done':''}"><span>${g.done?'✓':'○'}</span>${g.label}</li>`).join('')}</ul><p class="dialog-body">${status.reason}</p><div class="dialog-stat">Food ${state.survival.food}% · Water ${state.survival.water}% · Your name and discoveries stay with you.</div><button class="dialog-action" id="sleep-next-day" ${status.allowed?'':'disabled'}><span>Sleep · Start Day ${state.survival.day+1}</span>${icon('arrow')}</button><button class="dialog-secondary" id="sleep-back">Back to the cabin</button>`);
-    $('sleep-next-day').onclick=()=>{
-      if(!C.startNextDay(state))return;
-      closeDialog();keys.clear();path=[];target=null;targetStation=null;footsteps.length=0;facing='down';resize();updateHud();updateInteraction();save();render();
+    $('sleep-next-day').onclick=async()=>{
+      if(sleeping||!C.restStatus(state).allowed)return;
+      closeDialog();sleeping=true;stage.inert=true;
+      clearTimeout(toastTimer);$('toast').hidden=true;
+      const fade=document.createElement('div');
+      fade.className='sleep-transition';fade.setAttribute('aria-hidden','true');
+      document.body.append(fade);
+      const duration=reducedMotion?150:1100;
+      try{
+        await fade.animate([{opacity:0},{opacity:1}],{duration,fill:'forwards',easing:'ease-in-out'}).finished;
+        if(!C.startNextDay(state))return;
+        keys.clear();path=[];target=null;targetStation=null;footsteps.length=0;facing='down';resize();updateHud();updateInteraction();save();render();
+        await fade.animate([{opacity:1},{opacity:1}],{duration:reducedMotion?100:650,fill:'forwards'}).finished;
+        await fade.animate([{opacity:1},{opacity:0}],{duration,fill:'forwards',easing:'ease-in-out'}).finished;
+      }finally{
+        fade.remove();sleeping=false;stage.inert=false;
+      }
       showDialog(`DAY ${state.survival.day} · GOOD MORNING, ${C.playerName(state).toUpperCase()}`,`<h1 id="dialog-title">A new day on Mars.</h1><p class="dialog-body">${C.dayTitle(state)} Start with food, water, and today’s weather. Then: ${C.activeObjective(state).label.toLowerCase()}.</p>${actionButton('Start the day')}`);
       $('dialog-action').onclick=closeDialog;
     };
@@ -811,6 +825,7 @@
   });
   document.addEventListener('fullscreenchange', resize);
   window.addEventListener('keydown', event => {
+    if(sleeping){event.preventDefault();return;}
     if(state.death||['zoom','complete'].includes(state.ending.phase))return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     const key = event.key.toLowerCase();
