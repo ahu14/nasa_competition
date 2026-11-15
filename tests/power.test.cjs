@@ -1,10 +1,58 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),C=require('../dist/core.js'),P=C.Power;
-function sol(day=1){const s=C.freshState();C.finishIntro(s);s.orbi.phase='complete';s.survival.day=day;s.solarClean=true;return s;}
+function sol(day=1){const s=C.freshState();C.finishIntro(s);s.orbi.phase='complete';s.earthSignal.phase='lost';s.survival.day=day;s.solarClean=true;return s;}
 const plan=(mode='Normal',outdoor=true)=>({modes:{greenhouse:mode,habitat:mode,emu:mode},outdoor});
 test('weather forecasts and the 100 EU capacity determine a daily budget',()=>{const s=sol();s.power=50;const r=P.project(s,plan());assert.equal(r.generation,80);assert.equal(r.total,90);assert.equal(r.remaining,10);assert.equal(r.spill,30);assert.equal(P.forecast(sol(2)).eu,10);assert.equal(P.forecast(sol(6)).eu,60);assert.equal(P.forecast(sol(7)).eu,35);});
 test('a plan charges only once, is saved, and cannot generate free power on reload',()=>{let s=sol();assert.ok(P.confirm(s,plan()));assert.equal(s.power,10);s=C.normalizeState(JSON.parse(JSON.stringify(s)));assert.equal(s.powerPlan.day,1);assert.equal(P.confirm(s,plan()),true);assert.equal(s.power,10);});
 test('indoor plans reserve zero EMU power and reduced modes shorten shared outdoor time',()=>{const durations=[];for(const m of Object.keys(P.modes)){const s=sol();P.confirm(s,plan(m));durations.push(P.outdoorLimit(s));}assert.ok(durations[0]>durations[1]&&durations[1]>durations[2]);const s=sol();P.confirm(s,plan('Normal',false));assert.equal(s.powerPlan.allocation.emu,0);assert.equal(C.canExitShip(s),false);});
-test('shortages prioritize habitat and weaken plants gradually with recovery possible',()=>{const s=sol(2);s.power=0;P.confirm(s,plan());assert.equal(s.powerPlan.allocation.habitat,10);assert.equal(s.powerPlan.allocation.greenhouse,0);P.settle(s);assert.equal(s.greenhouse.health,94);assert.equal(s.greenhouse.report.growth,0);s.survival.day=5;s.power=100;P.confirm(s,plan());P.settle(s);assert.ok(s.greenhouse.health>94);assert.ok(s.greenhouse.report.growth>0);});
+test('shortages prioritize habitat and weaken plants gradually with recovery possible',()=>{const s=sol(2);s.power=2;P.confirm(s,plan());assert.equal(s.powerPlan.allocation.habitat,12);assert.equal(s.powerPlan.allocation.greenhouse,0);assert.equal(s.death,null);P.settle(s);assert.equal(s.greenhouse.health,94);assert.equal(s.greenhouse.report.growth,0);s.survival.day=5;s.power=100;P.confirm(s,plan());P.settle(s);assert.ok(s.greenhouse.health>94);assert.ok(s.greenhouse.report.growth>0);});
 test('normal crops grow faster than reduced crops; critical crops deteriorate slowly',()=>{const growth=[];for(const mode of Object.keys(P.modes)){const s=sol();P.confirm(s,plan(mode));P.settle(s);growth.push(s.greenhouse.report.growth);assert.ok(s.greenhouse.health>=94);}assert.ok(growth[0]>growth[1]&&growth[1]>growth[2]);});
 test('energy replaces hunger and meals never charge the main battery',()=>{const s=sol();s.energy=10;s.survival.food=100;assert.equal('hunger' in s,false);const battery=s.power;C.eatMeal(s);assert.equal(s.energy,50);assert.equal(s.power,battery);});
-test('EMU outdoor time is cumulative and cannot reset by re-entering the ship',()=>{const s=sol(5);P.confirm(s,plan('Critical'));C.exitShip(s);C.tickSurvival(s,40);C.enterShip(s);C.exitShip(s);assert.equal(C.tickSurvival(s,36),'energy');assert.equal(s.death.cause,'energy');});
+test('insufficient habitat power is fatal on confirmation and death survives reload',()=>{
+ for(const battery of [0,1.99]){
+  const s=sol(2);s.power=battery;
+  assert.equal(P.confirm(s,plan('Critical',false)),true);
+  assert.ok(s.powerPlan.allocation.habitat<12);assert.deepEqual(s.death,{cause:'power',day:2});
+  const restored=C.normalizeState(JSON.parse(JSON.stringify(s)));
+  assert.deepEqual(restored.death,s.death);assert.equal(C.canExitShip(restored),false);
+  assert.equal(C.startNextDay(restored),false);assert.equal(P.confirm(restored,plan()),false);
+  assert.equal(C.replayStory(restored).death,null);
+ }
+});
+
+test('exactly 12 reserved EU keeps life support working with an empty free battery',()=>{
+ const s=sol(2);s.power=2;P.confirm(s,plan());
+ assert.equal(s.power,0);assert.equal(s.powerPlan.allocation.habitat,12);
+ assert.equal(s.powerPlan.allocation.greenhouse,0);assert.equal(s.powerPlan.allocation.emu,0);
+ for(const location of ['ship','habitat','greenhouse']){
+  s.location=location;assert.equal(C.tickSurvival(s,1),'');assert.equal(s.death,null);
+ }
+});
+
+test('a saved life-support shortage cannot be bypassed by reloading or sleeping',()=>{
+ let s=sol(5);P.confirm(s,plan());s.powerPlan.allocation.habitat=11.99;
+ s=C.normalizeState(JSON.parse(JSON.stringify(s)));
+ assert.equal(C.restStatus(s).allowed,false);assert.match(C.restStatus(s).reason,/life support/);
+ assert.equal(C.tickSurvival(s,1),'power');assert.equal(s.death.cause,'power');
+});
+
+test('unplanned power does not kill the opening or prevent daily solar recharge',()=>{
+ const s=C.freshState();s.power=0;assert.equal(C.tickSurvival(s,60),'');assert.equal(s.death,null);
+ C.finishIntro(s);s.orbi.phase='complete';assert.equal(C.tickSurvival(s,1),'');
+ P.confirm(s,plan('Critical'));assert.equal(s.death,null);assert.equal(C.tickSurvival(s,1),'');
+});
+
+test('EMU power is cumulative across trips and reloads and fails without emptying stamina',()=>{
+ let s=sol(5);P.confirm(s,plan('Critical'));C.exitShip(s);
+ assert.equal(C.tickSurvival(s,40),'');C.enterShip(s);
+ s=C.normalizeState(JSON.parse(JSON.stringify(s)));
+ assert.equal(P.confirm(s,plan()),false);assert.equal(C.tickSurvival(s,10),'');
+ C.exitShip(s);assert.equal(C.tickSurvival(s,34),'');assert.equal(C.tickSurvival(s,1),'power');
+ assert.equal(s.death.cause,'power');assert.ok(s.energy>0);assert.ok(s.oxygen>0);
+ assert.equal(C.normalizeState(JSON.parse(JSON.stringify(s))).death.cause,'power');
+});
+
+test('an EVA with no reserved EMU power fails even when the astronaut has oxygen and energy',()=>{
+ const s=sol(5);s.power=12;s.solarClean=false;s.survival.day=2;
+ P.confirm(s,plan());assert.equal(s.death,null);assert.equal(s.powerPlan.allocation.emu,0);
+ C.exitShip(s);assert.equal(C.tickSurvival(s,.1),'power');assert.ok(s.energy>0);assert.ok(s.oxygen>0);
+});

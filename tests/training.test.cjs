@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),C=require('
 const D=require('../dist/donki.js'),fs=require('node:fs');
 const archive=JSON.parse(fs.readFileSync(require('node:path').join(__dirname,'../dist/assets/nasa/donki-snapshot.json'),'utf8')).historical;
 function crew(day=1){let s=C.freshState();C.finishIntro(s);s.earthSignal.phase='lost';s.orbi={phase:'complete',step:3,nameKnown:true,elapsed:2,response:''};s.survival.day=day;s.survival.food=100;s.survival.water=100;return C.normalizeState(s);}
-function prep(s){C.eatMeal(s);C.drinkWater(s);C.checkWeather(s);;C.Power.confirm(s,{modes:{greenhouse:'Normal',habitat:'Normal',emu:'Normal'},outdoor:true});}
+function prep(s){C.eatMeal(s);C.drinkWater(s);C.checkWeather(s);C.Power.confirm(s,{modes:{greenhouse:'Critical',habitat:'Critical',emu:'Critical'},outdoor:true});}
 
 test('ORBI and storm training use the current Sol and next Sol on every storm day',()=>{
   const context={window:{}};require('node:vm').runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../dist/training.js'),'utf8'),context);
@@ -17,8 +17,8 @@ test('ORBI and storm training use the current Sol and next Sol on every storm da
   }
 });
 
-test('the EMU lesson follows the weather check and requires every component role',()=>{
-  let s=crew();assert.equal(C.canExitShip(s),false);assert.equal(C.placeEmuPart(s,'helmet','helmet'),false);
+test('the EMU lesson can precede preparation and requires every component role',()=>{
+  let s=crew();assert.equal(C.canExitShip(s),false);assert.equal(C.canTrainEmu(s),true);
   prep(s);assert.equal(C.nextPreparation(s).id,'emu');assert.equal(C.canExitShip(s),false);
   assert.equal(C.placeEmuPart(s,'helmet','plss'),false);assert.deepEqual(s.training.emu.placed,[]);
   for(const part of C.emuParts){assert.equal(C.learnEmuPart(s,part.id),true);assert.equal(C.placeEmuPart(s,part.id,part.id),true);assert.equal(C.placeEmuPart(s,part.id,part.id),false);}
@@ -33,7 +33,7 @@ test('matching progress saves midway and replay resets training without clearing
 });
 
 test('Day 2 permits departure while the storm drill still guides safe indoor work',()=>{
-  const s=crew(2);C.Power.confirm(s,{modes:s.powerPlan.modes,outdoor:true});assert.equal(C.canExitShip(s),true);assert.equal(C.reviewStormRecords(s),false);prep(s);
+  const s=crew(2);C.Power.confirm(s,{modes:s.powerPlan.modes,outdoor:true});assert.equal(C.canExitShip(s),true);assert.equal(C.reviewStormRecords(s),true);prep(s);
   assert.equal(C.weatherFor(2).storm,true);assert.equal(C.nextPreparation(s),undefined);C.Power.confirm(s,{modes:s.powerPlan.modes,outdoor:true});assert.equal(C.canExitShip(s),true);assert.ok(C.exitShip(s));C.enterShip(s);
   assert.equal(C.dayGoals(s).some(g=>g.station==='solar'),false);assert.equal(C.orbiNeedsAttention(s),true);
   C.reviewStormRecords(s);

@@ -15,3 +15,5 @@ body[data-habitat-mode="Reduced"] #game{filter:brightness(.9)}body[data-habitat-
 #dialog.garden-dialog{width:min(760px,calc(100vw - 28px))}.garden .lettuce-art{stroke:none}
 
 .result-art.result-art-success{height:260px;background:transparent}@media(max-width:600px){.result-art.result-art-success{height:215px}}@media(max-height:550px){.result-art.result-art-success{height:145px}}
+
+.journal-list [data-goal]{cursor:pointer}.journal-list [data-goal]:hover{background:#ffffff0a}.journal-list [data-goal]:focus-visible{outline:2px solid #ffd99b;outline-offset:2px}

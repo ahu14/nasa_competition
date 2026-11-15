@@ -2,21 +2,17 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const C = require('../dist/core.js');
 
-test('the expedition enforces prerequisites and completes all five missions', () => {
+test('all five outpost missions can complete in reverse order and survive reload', () => {
   const s = C.freshState();
-  assert.equal(C.complete(s, 'rocket'), false);
-  assert.equal(C.complete(s, 'greenhouse'), false);
-  assert.equal(C.complete(s, 'habitat'), false);
-  assert.equal(C.complete(s, 'solar'), true);
+  for(const task of [...C.tasks].reverse()){
+    assert.equal(C.complete(s,task.id),true);
+    assert.deepEqual(C.normalizeState(JSON.parse(JSON.stringify(s))).tasks,s.tasks);
+  }
   assert.equal(s.energy, 72);
-  C.complete(s, 'greenhouse');
   assert.equal(s.oxygen, 98);
-  assert.equal(C.complete(s, 'habitat'), false);
-  C.complete(s, 'crystals');
   assert.equal(s.samples, 3);
-  C.complete(s, 'habitat');
-  C.complete(s, 'rocket');
   assert.equal(C.tasks.filter(t => s.tasks[t.id]).length, 5);
+  assert.equal(C.complete(s,'invalid'),false);
 });
 test('revisiting discoveries never duplicates rewards; life support can refill oxygen', () => {
   const s = C.freshState();
@@ -54,12 +50,12 @@ test('all consecutive mission destinations connect', () => {
     from = dest;
   }
 });
-test('corrupt saves cannot place the player inside obstacles or bypass prerequisites', () => {
+test('save validation repairs resources and position while preserving unordered tasks', () => {
   const habitat=C.stations.find(s=>s.id==='habitat');
   const s = C.normalizeState({ version: 1, oxygen: -50, energy: Infinity, samples: 999, player: { x: habitat.x, y: habitat.y-100 }, tasks: { rocket: true, habitat: true, greenhouse: true } });
   assert.equal(s.oxygen, 0); assert.equal(s.energy, 72); assert.equal(s.samples, 100);
   assert.ok(C.walkable(s.player.x, s.player.y));
-  assert.equal(s.tasks.greenhouse, false); assert.equal(s.tasks.habitat, false); assert.equal(s.tasks.rocket, false);
+  assert.equal(s.tasks.greenhouse, true); assert.equal(s.tasks.habitat, true); assert.equal(s.tasks.rocket, true);
   assert.deepEqual(C.normalizeState(null), C.freshState());
 });
 test('completed progress survives a JSON save round trip', () => {
@@ -325,10 +321,10 @@ test('after ORBI, food, water and a weather review are required before leaving',
   s.earthSignal.phase='lost';s.orbi={phase:'complete',step:3,nameKnown:true,elapsed:2,response:''};s=C.normalizeState(s);
   const worldPosition={...s.player};
   assert.equal(C.nextPreparation(s).id,'eat');assert.equal(C.canExitShip(s),false);assert.equal(C.exitShip(s),false);assert.equal(s.location,'ship');assert.deepEqual(s.player,worldPosition);
-  assert.equal(C.checkWeather(s),false);const energy=s.energy;
+  assert.equal(C.checkWeather(s),true);const energy=s.energy;
   assert.equal(C.eatMeal(s),true);assert.equal(s.energy,Math.min(100,energy+40));assert.equal(C.nextPreparation(s).id,'drink');
-  assert.equal(C.eatMeal(s),false);assert.equal(s.energy,100);assert.equal(C.checkWeather(s),false);
-  assert.equal(C.drinkWater(s),true);assert.equal(C.drinkWater(s),false);assert.equal(C.nextPreparation(s).id,'weather');
+  assert.equal(C.eatMeal(s),false);assert.equal(s.energy,100);assert.equal(C.checkWeather(s),true);
+  assert.equal(C.drinkWater(s),true);assert.equal(C.drinkWater(s),false);assert.equal(C.nextPreparation(s).id,'emu');
   assert.equal(C.canExitShip(s),false);assert.equal(C.checkWeather(s),true);assert.equal(C.nextPreparation(s).id,'emu');
   for(const part of C.emuParts)C.placeEmuPart(s,part.id,part.id);assert.equal(C.nextPreparation(s),undefined);
   C.Power.confirm(s,{modes:s.powerPlan.modes,outdoor:true});assert.equal(C.canExitShip(s),true);C.exitShip(s);assert.equal(s.location,'surface');assert.equal(C.eatMeal(s),false);assert.equal(C.checkWeather(s),false);
@@ -339,7 +335,7 @@ test('preflight saves migrate safely and cannot mark unchecked prerequisites com
   const s=C.freshState();C.finishIntro(s);s.earthSignal.phase='lost';s.orbi={phase:'complete',step:3,nameKnown:true,elapsed:0,response:''};delete s.preparation;
   const migrated=C.normalizeState(s);assert.equal(C.canExitShip(migrated),false);assert.equal(C.nextPreparation(migrated).id,'eat');
   const invalid=C.normalizeState({...s,preparation:{ate:'yes',drank:true,weatherChecked:true}});
-  assert.deepEqual(invalid.preparation,{ate:false,drank:true,weatherChecked:false});
+  assert.deepEqual(invalid.preparation,{ate:false,drank:true,weatherChecked:true});
   const beforeOrbi=C.normalizeState({...s,earthSignal:{phase:'waiting'},preparation:{ate:true,drank:true,weatherChecked:true}});
   assert.deepEqual(beforeOrbi.preparation,{ate:false,drank:false,weatherChecked:false});
 });

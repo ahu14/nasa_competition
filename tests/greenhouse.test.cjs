@@ -21,7 +21,7 @@ test('water and mineral shortages halt growth and lower plant health',()=>{
   }
 });
 test('storm solar shortage damages plants; safe cleaning and power restore light and growth',()=>{
-  const s=crew(2);s.power=0;s.solarClean=false;
+  const s=crew(2);s.power=5;s.solarClean=false;
   P.confirm(s,{modes:{greenhouse:'Normal',habitat:'Normal',emu:'Normal'},outdoor:false});
   assert.equal(G.light(s),0);P.settle(s);const health=s.greenhouse.health;
   s.location='surface';const st=C.stations.find(v=>v.id==='solar');s.player={x:st.ax,y:st.ay};

@@ -237,9 +237,6 @@
     if(shipWalkable(saved.shipPlayer?.x,saved.shipPlayer?.y))state.shipPlayer={x:saved.shipPlayer.x,y:saved.shipPlayer.y};
     if (Number.isFinite(saved.introStep)) state.introStep = Math.floor(clamp(saved.introStep,0,3));
     for (const t of tasks) state.tasks[t.id] = saved.tasks?.[t.id] === true;
-    if (!state.tasks.solar) state.tasks.greenhouse = false;
-    if (!(state.tasks.solar && state.tasks.greenhouse && state.tasks.crystals)) state.tasks.habitat = false;
-    if (!state.tasks.habitat) state.tasks.rocket = false;
     for (const k of ['oxygen', 'energy', 'samples', 'seconds']) if (Number.isFinite(saved[k])) state[k] = clamp(saved[k], 0, k === 'seconds' ? 9999999 : 100);
     for(const k of ['power','stormExposure'])if(Number.isFinite(saved[k]))state[k]=clamp(saved[k],0,k==='stormExposure'?SURVIVAL_RATES.stormLimit:100);
     // Older saves used energy as the only battery reading. Preserve that ship
@@ -251,7 +248,7 @@
     if(state.orbi.phase==='complete'){
       state.preparation.ate=saved.preparation?.ate===true;
       state.preparation.drank=saved.preparation?.drank===true;
-      state.preparation.weatherChecked=saved.preparation?.weatherChecked===true&&(saved.survival?.day>1||state.preparation.ate&&state.preparation.drank);
+      state.preparation.weatherChecked=saved.preparation?.weatherChecked===true;
     }
     if(saved.survival&&typeof saved.survival==='object'){
       const v=saved.survival;
@@ -282,15 +279,12 @@
       const question=Training.stormDecisions[state.training.storm.answers.length],feedback=t.storm?.feedback;
       if(state.training.storm.reviewed&&question&&feedback&&question.choices.some(choice=>choice.id===feedback.choice))state.training.storm.feedback={choice:feedback.choice};
     }
-    if(['hunger','oxygen','energy','storm'].includes(saved.death?.cause))state.death={cause:saved.death.cause,day:state.survival.day};
+    if(['hunger','oxygen','energy','storm','power'].includes(saved.death?.cause)&&(!['energy','hunger'].includes(saved.death.cause)||state.energy===0))state.death={cause:saved.death.cause,day:state.survival.day};
     return state;
   }
   function canComplete(state, id) {
     if(state.death)return false;
-    if (id === 'greenhouse') return state.tasks.solar;
-    if (id === 'habitat') return state.tasks.solar && state.tasks.greenhouse && state.tasks.crystals;
-    if (id === 'rocket') return state.tasks.habitat;
-    return ['solar', 'crystals', 'rover', 'flag'].includes(id);
+    return tasks.some(task=>task.id===id)||['rover','flag'].includes(id);
   }
   function finishIntro(state) {
     const rocket = stations.find(s=>s.id==='rocket');
@@ -357,11 +351,11 @@
     state.preparation.drank=true;state.survival.water-=15;flagLowSupplies(state);return true;
   }
   function checkWeather(state){
-    if(state.death||!state.introComplete||state.location!=='ship'||state.orbi.phase!=='complete'||state.survival.day===1&&(!state.preparation.ate||!state.preparation.drank))return false;
+    if(state.death||!state.introComplete||state.location!=='ship'||state.orbi.phase!=='complete')return false;
     state.preparation.weatherChecked=true;return true;
   }
   function emuComplete(state){return Training.emuParts.every(part=>state.training.emu.placed.includes(part.id));}
-  function canTrainEmu(state){return state.introComplete&&state.location==='ship'&&state.orbi.phase==='complete'&&state.survival.day===1&&state.preparation.weatherChecked;}
+  function canTrainEmu(state){return !state.death&&state.introComplete&&state.location==='ship'&&state.orbi.phase==='complete'&&state.survival.day===1;}
   function learnEmuPart(state,id){
     if(!canTrainEmu(state)||!Training.emuParts.some(part=>part.id===id))return false;
     if(!state.training.emu.learned.includes(id))state.training.emu.learned.push(id);return true;
@@ -371,7 +365,7 @@
     learnEmuPart(state,id);state.training.emu.placed.push(id);return true;
   }
   function stormComplete(state){return state.training.storm.answers.length===Training.stormDecisions.length;}
-  function canTrainStorm(state){return state.introComplete&&state.location==='ship'&&state.orbi.phase==='complete'&&isStormDay(state.survival.day)&&state.preparation.weatherChecked;}
+  function canTrainStorm(state){return !state.death&&state.introComplete&&state.location==='ship'&&state.orbi.phase==='complete'&&isStormDay(state.survival.day);}
   function reviewStormRecords(state){if(!canTrainStorm(state))return false;state.training.storm.reviewed=true;return true;}
   function stormFeedback(state){
     const question=Training.stormDecisions[state.training.storm.answers.length];
@@ -460,6 +454,7 @@
   function restStatus(state){
     if(state.death)return {allowed:false,reason:'This expedition has ended. Start a fresh expedition to try again.'};
     if(state.powerPlan.day!==state.survival.day)return {allowed:false,reason:'Confirm today’s power plan first.'};
+    if(Power.failed(state))return {allowed:false,reason:'There is not enough electricity for life support. Check the power plan.'};
     if(state.survival.day>=15)return {allowed:false,reason:'Finish the final fieldwork and listen for ORBI. This is the last day.'};
     if(state.orbi.phase!=='complete')return {allowed:false,reason:'Talk to ORBI and find your bearings first.'};
     if(state.location!=='ship')return {allowed:false,reason:'Return to the spaceship to rest.'};
@@ -496,8 +491,8 @@
     return true;
   }
   function orbiDialogue(state){
-    if(state.orbi.phase==='complete'&&state.preparation.weatherChecked&&isStormDay(state.survival.day))return {text:`Mira, Day ${state.survival.day} is a shelter day. The airlock is available, but storm exposure is dangerous. Let’s review NASA’s real solar-event records, then practise protecting ourselves in a simulated Mars radiation storm.`,choices:['Open solar-storm training'],caption:'Real observations. A simulated mission. Decisions that matter.'};
-    if(state.orbi.phase==='complete'&&state.preparation.weatherChecked&&state.survival.day===1&&!emuComplete(state))return {text:'Before your first EVA, learn the EMU. Match its parts to their jobs. It keeps you breathing and working, but it is not a shield against an intense solar-particle storm.',choices:['Learn & assemble the EMU'],caption:'A little practice before the first step outside.'};
+    if(state.orbi.phase==='complete'&&isStormDay(state.survival.day))return {text:`Mira, Day ${state.survival.day} is a shelter day. The airlock is available, but storm exposure is dangerous. Let’s review NASA’s real solar-event records, then practise protecting ourselves in a simulated Mars radiation storm.`,choices:['Open solar-storm training'],caption:'Real observations. A simulated mission. Decisions that matter.'};
+    if(state.orbi.phase==='complete'&&state.survival.day===1&&!emuComplete(state))return {text:'Before your first EVA, learn the EMU. Match its parts to their jobs. It keeps you breathing and working, but it is not a shield against an intense solar-particle storm.',choices:['Learn & assemble the EMU'],caption:'A little practice before the first step outside.'};
     if(state.orbi.phase==='complete')return {text:state.survival.warningPending?`Mira, our supplies are low! Food: ${state.survival.food}%. Water: ${state.survival.water}%. We don’t have enough for the rescue wait. Explore the outpost and find the food storage building. Collect ice crystals and use the habitat processor for water.`:`Morning, ${ASTRONAUT_NAME}! It’s Day ${state.survival.day}. ${nextPreparation(state)?'Breakfast, water, and today’s weather first. ':''}${activeObjective(state).label}. I’ve marked the route for you.`,choices:[state.survival.warningPending?'I’ll look for the supply depot.':'Back to the cabin'],caption:state.survival.warningPending?'A small breakfast. A much bigger problem.':'A familiar voice. A new day.'};
     return [
       {text:`Morning, ${ASTRONAUT_NAME}! Ready for today’s tasks?`,choices:[`${ASTRONAUT_NAME}… is that my name?`,'Today’s tasks? What happened?'],caption:'That name… it feels like it belongs to you.'},
@@ -513,10 +508,10 @@
 
 
     state.energy=Math.max(0,state.energy-dt*(.015+SURVIVAL_RATES.energy[mode]));
-    if(outside&&state.powerPlan.day===state.survival.day){state.powerPlan.exposure+=dt;if(state.powerPlan.exposure>=Power.outdoorLimit(state))state.energy=0;}
+    if(outside&&state.powerPlan.day===state.survival.day)state.powerPlan.exposure+=dt;
     if(outside)state.oxygen=Math.max(0,state.oxygen-dt*SURVIVAL_RATES.oxygen[mode]);
     state.stormExposure=outside&&isStormDay(state.survival.day)?Math.min(SURVIVAL_RATES.stormLimit,state.stormExposure+dt):0;
-    const cause=outside&&state.oxygen<=0?'oxygen':state.energy<=0?'energy':state.stormExposure>=SURVIVAL_RATES.stormLimit?'storm':'';
+    const cause=outside&&state.oxygen<=0?'oxygen':Power.failed(state)?'power':state.energy===0?'energy':state.stormExposure>=SURVIVAL_RATES.stormLimit?'storm':'';
     if(cause)state.death={cause,day:state.survival.day};
     return cause;
   }
@@ -534,8 +529,8 @@
     return true;
   }
   const endingLines=[['ORBI','Incoming transmission detected...'],['Earth Control','Mars Base, do you copy?'],['Astronaut','EARTH?! Is that really you?'],['Earth Control',"We've been trying to reach you for fifteen days."],['Astronaut','I thought everyone had forgotten about me...'],['Earth Control','We never stopped looking.'],['ORBI','Survival mission accomplished.']];
-  function tickEnding(state,dt,working){const e=state.ending;if(state.survival.day!==15||!Number.isFinite(dt)||dt<=0)return '';if(e.phase==='dormant'&&working){e.elapsed+=dt;if(e.elapsed>=8){e.phase='recalled';e.elapsed=0;return 'recall';}}if(e.phase==='zoom'){e.elapsed+=dt;if(e.elapsed>=7){e.phase='complete';return 'complete';}}return '';}
-  function beginEnding(state){if(state.survival.day!==15||state.location!=='ship'||state.ending.phase!=='recalled')return false;state.ending.phase='transmission';state.ending.step=0;state.earthSignal.phase='connected';return true;}
+  function tickEnding(state,dt,working){const e=state.ending;if(state.survival.day!==15||!Number.isFinite(dt)||dt<=0)return '';if(e.phase==='dormant'&&working&&dayGoals(state).every(goal=>goal.done)){e.elapsed+=dt;if(e.elapsed>=8){e.phase='recalled';e.elapsed=0;return 'recall';}}if(e.phase==='zoom'){e.elapsed+=dt;if(e.elapsed>=7){e.phase='complete';return 'complete';}}return '';}
+  function beginEnding(state){if(state.survival.day!==15||state.location!=='ship'||state.ending.phase!=='recalled'||dayGoals(state).some(goal=>!goal.done))return false;state.ending.phase='transmission';state.ending.step=0;state.earthSignal.phase='connected';return true;}
   function advanceEnding(state){if(state.ending.phase!=='transmission')return false;if(state.ending.step<endingLines.length-1)state.ending.step++;else{state.ending.phase='zoom';state.ending.elapsed=0;}return true;}
   const api = { endingLines,tickEnding,beginEnding,advanceEnding,performOperation,isStormDay, W, H, GRID, CHUNK, HOME, SHIP, EARTH_ALERT_DELAY, ASTRONAUT_NAME, todayWeather, earthDialogue, shipStations, roads, clamp, randomFor, getChunk, regionAt, cameraFor, shipCameraFor, shipWalkable, tasks, stations, freshState, normalizeState, walkable, nearestOpen, findPath, finishIntro, replayStory, enterShip, exitShip, contactEarth, advanceEarthCall, tickEarthSignal, earthStatus, tickOrbi, orbiNeedsAttention, playerName, preparationSteps, nextPreparation, canExitShip, eatMeal, drinkWater, checkWeather, emuParts:Training.emuParts, stormDecisions:Training.stormDecisions, scienceSources:Training.sources, emuComplete, canTrainEmu, learnEmuPart, placeEmuPart, stormComplete, canTrainStorm, reviewStormRecords, stormFeedback, chooseStormDecision, advanceStormDecision, flagLowSupplies, acknowledgeSupplies, recordVisit, collectSupplies, dayGoals, dayTitle, activeObjective, restStatus, startNextDay, weatherFor, beginOrbi, advanceOrbi, orbiDialogue, canComplete, complete };
   Object.assign(api,{Greenhouse,waterNeededForRest,Power,SURVIVAL_RATES,solarGeneration,tickSurvival});

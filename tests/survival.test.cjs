@@ -3,12 +3,49 @@ const assert=require('node:assert/strict');
 const C=require('../dist/core.js');
 function crew(day=1){const s=C.freshState();C.finishIntro(s);s.survival.day=day;s.survival.food=100;s.survival.water=100;s.orbi.phase='complete';s.earthSignal.phase='lost';return s;}
 function at(s,id){const st=C.stations.find(st=>st.id===id);s.location='surface';s.player={x:st.ax,y:st.ay};C.recordVisit(s,id);}
-function prep(s){C.enterShip(s);C.eatMeal(s);C.acknowledgeSupplies(s);C.drinkWater(s);C.checkWeather(s);if(s.survival.day===1)for(const p of C.emuParts)C.placeEmuPart(s,p.id,p.id);;C.Power.confirm(s,{modes:{greenhouse:'Normal',habitat:'Normal',emu:'Normal'},outdoor:true});}
+function prep(s,choice={modes:{greenhouse:'Normal',habitat:'Normal',emu:'Normal'},outdoor:true}){C.enterShip(s);C.eatMeal(s);C.acknowledgeSupplies(s);C.drinkWater(s);C.checkWeather(s);if(s.survival.day===1)for(const p of C.emuParts)C.placeEmuPart(s,p.id,p.id);C.Power.confirm(s,choice);}
+test('energy death occurs at exactly zero, including fractional energy and save reloads',()=>{
+ for(const activity of ['idle','walk','run']){
+  const s=crew(5);s.energy=.001;
+  assert.equal(C.tickSurvival(s,.001,activity),'');assert.ok(s.energy>0);assert.equal(s.death,null);
+  assert.equal(C.tickSurvival(s,1,activity),'energy');assert.equal(s.energy,0);
+  assert.equal(C.normalizeState(JSON.parse(JSON.stringify(s))).death.cause,'energy');
+ }
+ for(const cause of ['energy','hunger']){
+  const s=crew(5);s.energy=.001;s.death={cause,day:5};
+  assert.equal(C.normalizeState(s).death,null);
+ }
+});
+
+test('daily tasks can complete in every order but sleep requires all of them',()=>{
+ for(const order of [['rover','supplies','solar'],['supplies','solar','rover'],['solar','rover','supplies'],['solar','supplies','rover'],['supplies','rover','solar'],['rover','solar','supplies']]){
+  let s=crew(6);prep(s);
+  for(const id of order){
+   assert.equal(C.restStatus(s).allowed,false);
+   at(s,id==='supplies'?'storage':id);
+   assert.equal(id==='supplies'?C.collectSupplies(s):C.performOperation(s,id),true);
+   C.enterShip(s);s=C.normalizeState(JSON.parse(JSON.stringify(s)));
+  }
+  assert.ok(C.dayGoals(s).every(g=>g.done));assert.equal(C.startNextDay(s),true);
+ }
+});
+
+test('indoor maintenance is available before preparation and in reverse order',()=>{
+ const s=crew(3);
+ for(const goal of C.dayGoals(s).reverse()){
+  const station=C.shipStations.find(st=>st.id===goal.station);s.shipPlayer={x:station.ax,y:station.ay};
+  assert.equal(C.performOperation(s,goal.id),true);
+ }
+ assert.ok(C.dayGoals(s).every(g=>g.done));assert.equal(C.startNextDay(s),false);
+});
 test('all fifteen days are reachable with real supplies and varied indoor and outdoor jobs',()=>{
  let s=crew();
  for(let day=1;day<=15;day++){
-  assert.equal(s.survival.day,day);prep(s);
-  C.Power.confirm(s,{modes:s.powerPlan.modes,outdoor:true});assert.equal(C.canExitShip(s),true);
+  assert.equal(s.survival.day,day);
+  const outdoor=!C.isStormDay(day),choice={modes:{greenhouse:'Critical',habitat:'Critical',emu:'Normal'},outdoor};
+  prep(s,choice);assert.equal(s.death,null,'Power on Day '+day);
+  C.Power.confirm(s,choice);assert.equal(C.canExitShip(s),outdoor);
+  assert.equal(C.tickSurvival(s,1),'','Survival on Day '+day);
   if(day===1){for(const id of ['storage','habitat','flag'])at(s,id);at(s,'storage');C.collectSupplies(s);}
   else if(day===2){C.reviewStormRecords(s);for(const q of C.stormDecisions){C.chooseStormDecision(s,q.choices.find(c=>c.correct).id);C.advanceStormDecision(s);}}
   else for(const goal of C.dayGoals(s)){
@@ -45,6 +82,9 @@ test('meals restore astronaut energy while ship power changes only through gener
 });
 test('final fieldwork recalls the astronaut only on Day 15 and the terminal plays every supplied line',()=>{
  let s=crew(14);assert.equal(C.tickEnding(s,20,true),'');s.survival.day=15;
+ assert.equal(C.tickEnding(s,20,true),'');assert.equal(s.ending.phase,'dormant');
+ at(s,'flag');assert.equal(C.performOperation(s,'beacon'),true);assert.equal(C.tickEnding(s,20,true),'');
+ at(s,'rover');assert.equal(C.performOperation(s,'rover'),true);
  assert.equal(C.tickEnding(s,20,false),'');assert.equal(C.tickEnding(s,7,true),'');assert.equal(C.tickEnding(s,1,true),'recall');
  at(s,'rover');assert.equal(C.beginEnding(s),false);C.enterShip(s);assert.equal(C.beginEnding(s),true);
  for(let i=0;i<C.endingLines.length;i++){assert.equal(s.ending.step,i);s=C.normalizeState(JSON.parse(JSON.stringify(s)));assert.equal(C.advanceEnding(s),true);}
