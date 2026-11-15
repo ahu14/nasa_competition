@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="orbi.css">
   <link rel="stylesheet" href="preparation.css">
   <link rel="stylesheet" href="training.css">
+  <link rel="stylesheet" href="survival.css">
 </head>
 <body class="play-screen">
   <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
@@ -41,7 +42,11 @@
         <button class="earth-notification orbi-notification" id="orbi-notification" aria-label="Talk to ORBI" title="ORBI has a message for you" hidden>!</button>
         <section class="ship-prep" id="ship-prep" aria-label="Before going outside" hidden><span id="prep-heading">BEFORE YOU HEAD OUT</span><p id="prep-description">A little breakfast. A look at the sky.</p><ol><li><button id="prep-eat"><span id="prep-eat-mark">○</span>Eat a meal</button></li><li><button id="prep-drink"><span id="prep-drink-mark">○</span>Drink water</button></li><li><button id="prep-weather"><span id="prep-weather-mark">○</span>Check weather</button></li><li id="prep-emu-item"><button id="prep-emu"><span id="prep-emu-mark">○</span>EMU training</button></li></ol></section>
         <section class="survival-hud" id="survival-hud" aria-label="Day and supply reserves" hidden><button id="day-journal" title="Open today’s exploration plan"><small>MISSION DAY</small><strong id="day-value">DAY 1</strong></button><div><span>FOOD STOCK <b id="food-stock-value">28%</b></span><i><b id="food-stock-bar"></b></i></div><div><span>WATER STOCK <b id="water-stock-value">32%</b></span><i><b id="water-stock-bar"></b></i></div></section>
-        <div class="resource-hud" aria-label="Suit resources"><div class="resource"><span class="oxygen-icon">O<sub>2</sub></span><span><small>OXYGEN</small><b id="oxygen-value">98<span>%</span></b></span><span class="resource-track"><i id="oxygen-bar"></i></span></div><div class="resource"><svg class="energy-icon"><use href="#i-bolt"/></svg><span><small>ENERGY</small><b id="energy-value">72<span>%</span></b></span><span class="resource-track energy-track"><i id="energy-bar"></i></span></div><div class="resource sample-resource"><svg><use href="#i-crystal"/></svg><span><small>SAMPLES</small><b id="samples-value">00</b></span></div></div>
+        <div class="cargo-hud" aria-label="Carried supplies">ICE <b id="cargo-ice">0</b>/6 | O2 <b id="cargo-oxygen">0</b>/3</div>
+        <div class="resource-hud" aria-label="Astronaut resources"><div class="resource"><span class="oxygen-icon">O<sub>2</sub></span><span><small>SUIT OXYGEN</small><b id="oxygen-value">98<span>%</span></b></span><span class="resource-track"><i id="oxygen-bar"></i></span></div><div class="resource"><svg class="energy-icon"><use href="#i-bolt"/></svg><span><small>ASTRONAUT ENERGY</small><b id="energy-value">72<span>%</span></b></span><span class="resource-track energy-track"><i id="energy-bar"></i></span></div><div class="resource"><span><small>SHIP POWER</small><b id="power-value">100<span>%</span></b></span><span class="resource-track"><i id="power-bar"></i></span></div><div class="resource sample-resource"><svg><use href="#i-crystal"/></svg><span><small>SAMPLES</small><b id="samples-value">00</b></span></div></div>
+        <button class="ship-power-hud" id="power-planner">⚡ POWER PLAN <small id="solar-output"></small></button>
+        <div class="storm-warning" id="storm-warning" role="status" hidden><strong>RADIATION STORM</strong><span id="storm-countdown"></span></div>
+        <div class="resource-warning" id="resource-warning" role="status" hidden></div>
         <nav class="game-actions" aria-label="Game controls"><button class="icon-button" id="sound-button" aria-label="Turn sound on" title="Turn sound on"><svg><use href="#i-muted"/></svg></button><button class="icon-button" id="guide-button" aria-label="Field guide" title="How to play (H)"><svg><use href="#i-book"/></svg></button><button class="icon-button" id="pause-button" aria-label="Pause game" title="Pause (Esc)"><svg><use href="#i-pause"/></svg></button></nav>
         <button class="destination-beacon" id="destination-beacon" aria-label="Walk to next station" hidden><svg id="destination-arrow"><use href="#i-arrow"/></svg><span id="destination-name"></span><b id="destination-distance"></b></button>
         <div class="welcome" id="welcome"><span class="welcome-kicker">OUTSIDE THE SHIP</span><strong>No name. No memories.<br>Only a red horizon.</strong><span>Find a signal. Find your way home.</span><button id="begin-button">Let’s explore <svg><use href="#i-arrow"/></svg></button></div>
@@ -74,6 +79,7 @@
   </dialog>
   <dialog class="training-dialog" id="training-dialog" aria-labelledby="training-title"><header class="training-top"><div><span id="training-kicker">ORBI / TRAINING</span><h1 id="training-title">Mission training</h1></div><button id="training-close" aria-label="Close training">×</button></header><div class="training-inner" id="training-content"></div></dialog>
   <script src="training-model.js"></script>
+  <script src="power-model.js"></script>
   <script src="core.js"></script>
   <script src="donki-records.js"></script>
   <script src="donki.js"></script>
@@ -81,6 +87,7 @@
   <script src="world.js"></script>
   <script src="character.js"></script>
   <script src="intro.js"></script>
+  <script src="power-ui.js"></script>
   <script src="game.js"></script>
 </body>
 </html>

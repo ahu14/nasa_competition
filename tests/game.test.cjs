@@ -303,7 +303,7 @@ test('ORBI reveals the astronaut name, remembers either reply, and gives the act
     C.advanceOrbi(s);assert.equal(s.orbi.phase,'complete');assert.equal(C.orbiNeedsAttention(s),false);
     assert.deepEqual(s.tasks,originalTasks);assert.equal(C.advanceOrbi(s),false);
     C.eatMeal(s);C.drinkWater(s);C.checkWeather(s);for(const part of C.emuParts)C.placeEmuPart(s,part.id,part.id);
-    C.exitShip(s);assert.equal(C.beginOrbi(s),false);C.enterShip(s);assert.equal(C.beginOrbi(s),true);
+    C.Power.confirm(s,{modes:s.powerPlan.modes,outdoor:true});C.exitShip(s);assert.equal(C.beginOrbi(s),false);C.enterShip(s);assert.equal(C.beginOrbi(s),true);
     assert.match(C.orbiDialogue(s).text,/supplies are low/);assert.equal(s.orbi.phase,'complete');
     assert.deepEqual(C.normalizeState(JSON.parse(JSON.stringify(s))),s);
   }
@@ -326,13 +326,13 @@ test('after ORBI, food, water and a weather review are required before leaving',
   const worldPosition={...s.player};
   assert.equal(C.nextPreparation(s).id,'eat');assert.equal(C.canExitShip(s),false);assert.equal(C.exitShip(s),false);assert.equal(s.location,'ship');assert.deepEqual(s.player,worldPosition);
   assert.equal(C.checkWeather(s),false);const energy=s.energy;
-  assert.equal(C.eatMeal(s),true);assert.equal(s.energy,energy);assert.equal(C.nextPreparation(s).id,'drink');
-  assert.equal(C.eatMeal(s),false);assert.equal(s.energy,energy);assert.equal(C.checkWeather(s),false);
+  assert.equal(C.eatMeal(s),true);assert.equal(s.energy,Math.min(100,energy+40));assert.equal(C.nextPreparation(s).id,'drink');
+  assert.equal(C.eatMeal(s),false);assert.equal(s.energy,100);assert.equal(C.checkWeather(s),false);
   assert.equal(C.drinkWater(s),true);assert.equal(C.drinkWater(s),false);assert.equal(C.nextPreparation(s).id,'weather');
   assert.equal(C.canExitShip(s),false);assert.equal(C.checkWeather(s),true);assert.equal(C.nextPreparation(s).id,'emu');
   for(const part of C.emuParts)C.placeEmuPart(s,part.id,part.id);assert.equal(C.nextPreparation(s),undefined);
-  assert.equal(C.canExitShip(s),true);C.exitShip(s);assert.equal(s.location,'surface');assert.equal(C.eatMeal(s),false);assert.equal(C.checkWeather(s),false);
-  C.enterShip(s);assert.equal(C.canExitShip(s),true);assert.deepEqual(C.normalizeState(JSON.parse(JSON.stringify(s))),s);
+  C.Power.confirm(s,{modes:s.powerPlan.modes,outdoor:true});assert.equal(C.canExitShip(s),true);C.exitShip(s);assert.equal(s.location,'surface');assert.equal(C.eatMeal(s),false);assert.equal(C.checkWeather(s),false);
+  C.enterShip(s);C.Power.confirm(s,{modes:s.powerPlan.modes,outdoor:true});assert.equal(C.canExitShip(s),true);assert.deepEqual(C.normalizeState(JSON.parse(JSON.stringify(s))),s);
 });
 
 test('preflight saves migrate safely and cannot mark unchecked prerequisites complete',()=>{
@@ -358,7 +358,7 @@ function crewReady(){
   const s=C.freshState();C.finishIntro(s);s.earthSignal.phase='lost';s.orbi={phase:'complete',step:3,nameKnown:true,elapsed:2,response:''};return C.normalizeState(s);
 }
 function visit(s,id){const st=C.stations.find(st=>st.id===id);s.location='surface';s.player={x:st.ax,y:st.ay};return C.recordVisit(s,id);}
-function breakfast(s){C.eatMeal(s);C.acknowledgeSupplies(s);C.drinkWater(s);C.checkWeather(s);if(s.survival.day===1)for(const part of C.emuParts)C.placeEmuPart(s,part.id,part.id);}
+function breakfast(s){C.eatMeal(s);C.acknowledgeSupplies(s);C.drinkWater(s);C.checkWeather(s);if(s.survival.day===1)for(const part of C.emuParts)C.placeEmuPart(s,part.id,part.id);;C.Power.confirm(s,{modes:{greenhouse:'Normal',habitat:'Normal',emu:'Normal'},outdoor:true});}
 
 test('breakfast consumes real stock percentages and ORBI warns once per day',()=>{
   const s=crewReady();assert.equal(s.survival.food,28);assert.equal(s.survival.water,32);
@@ -370,20 +370,20 @@ test('breakfast consumes real stock percentages and ORBI warns once per day',()=
 
 test('the storage depot is a physical resupply point with one capped load each day',()=>{
   const s=crewReady();breakfast(s);assert.equal(C.collectSupplies(s),false);C.exitShip(s);assert.equal(C.collectSupplies(s),false);
-  visit(s,'storage');assert.equal(C.collectSupplies(s),true);assert.equal(s.survival.food,88);assert.equal(s.survival.water,97);
+  visit(s,'storage');assert.equal(C.collectSupplies(s),true);assert.equal(s.survival.food,88);assert.equal(s.survival.water,17);
   assert.equal(s.survival.storageRecovered,true);assert.equal(s.survival.visited.includes('storage'),true);assert.equal(C.collectSupplies(s),false);
-  assert.equal(s.survival.food,88);s.survival.day=2;assert.equal(C.collectSupplies(s),true);assert.equal(s.survival.food,100);assert.equal(s.survival.water,100);
+  assert.equal(s.survival.food,88);s.survival.day=2;assert.equal(C.collectSupplies(s),true);assert.equal(s.survival.food,100);assert.equal(s.survival.water,17);
 });
 
 test('Day 1 rewards exploration and sleep starts Day 2 without replaying amnesia',()=>{
   const s=crewReady();breakfast(s);assert.equal(C.startNextDay(s),false);
   visit(s,'rocket');assert.equal(C.recordVisit(s,'solar'),false);visit(s,'habitat');
   assert.equal(C.dayGoals(s)[1].done,true);assert.equal(C.dayGoals(s)[0].done,false);
-  visit(s,'storage');C.collectSupplies(s);assert.equal(C.restStatus(s).allowed,false);C.enterShip(s);
+  visit(s,'storage');C.collectSupplies(s);assert.equal(C.restStatus(s).allowed,false);visit(s,'crystals');C.performOperation(s,'collect-ice');s.location='habitat';while(s.operations.ice>0&&s.survival.water<100)C.performOperation(s,'process-ice');C.enterShip(s);
   assert.equal(C.restStatus(s).allowed,true);const supplies={food:s.survival.food,water:s.survival.water};
   assert.equal(C.startNextDay(s),true);assert.equal(s.survival.day,2);assert.deepEqual(s.survival.visitedToday,[]);
   assert.deepEqual(s.preparation,{ate:false,drank:false,weatherChecked:false});assert.equal(s.introComplete,true);assert.equal(C.playerName(s),'Mira');assert.equal(s.earthSignal.phase,'lost');
-  assert.equal(s.survival.food,supplies.food);assert.equal(C.dayGoals(s)[0].station,'weather');assert.equal(C.canExitShip(s),false);
+  assert.equal(s.survival.food,supplies.food);assert.equal(C.dayGoals(s)[0].station,'weather');C.Power.confirm(s,{modes:s.powerPlan.modes,outdoor:true});assert.equal(C.canExitShip(s),true);
   assert.deepEqual(C.normalizeState(JSON.parse(JSON.stringify(s))),s);
   assert.notEqual(C.weatherFor(1).temperature,C.weatherFor(2).temperature);assert.equal(C.weatherFor(2).sol,2);
 });
@@ -392,7 +392,7 @@ test('Day 6 maintenance, supplies, and rover data lead to the first harvest',()=
 
 test('rest cannot strand the next morning without breakfast supplies',()=>{
   const s=crewReady();breakfast(s);visit(s,'rocket');visit(s,'habitat');visit(s,'storage');C.collectSupplies(s);C.enterShip(s);
-  s.survival.water=0;assert.equal(C.startNextDay(s),false);assert.match(C.restStatus(s).reason,/supplies/);assert.equal(C.canExitShip(s),true);assert.equal(C.activeObjective(s).id,'storage');
+  s.survival.water=0;assert.equal(C.startNextDay(s),false);assert.match(C.restStatus(s).reason,/supplies/);C.Power.confirm(s,{modes:s.powerPlan.modes,outdoor:true});assert.equal(C.canExitShip(s),true);assert.equal(C.activeObjective(s).id,'crystals');
   s.survival.water=20;s.survival.food=0;assert.equal(C.startNextDay(s),false);assert.equal(s.survival.day,1);
 });
 

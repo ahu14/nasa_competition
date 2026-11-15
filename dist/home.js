@@ -11,7 +11,7 @@
     const expedition = JSON.parse(localStorage.getItem('nova-mars-outpost-v1'));
     if (expedition?.version === 1 && (expedition.seconds > 0 || expedition.introStep > 0 || expedition.introComplete || Object.values(expedition.tasks || {}).some(Boolean))) {
       const completed = window.NOVACore.tasks.filter(task => expedition.tasks?.[task.id] === true).length;
-      $('saved-expedition-label').textContent = expedition.introComplete===false&&expedition.introStep>0?'SAVED STORY · THE AWAKENING · START TO CONTINUE':`DAY ${expedition.survival?.day||1} · ${completed} / 5 OUTPOST SYSTEMS · START TO CONTINUE`;
+      $('saved-expedition-label').textContent = expedition.death?'EXPEDITION ENDED · START TO VIEW RESULT':expedition.introComplete===false&&expedition.introStep>0?'SAVED STORY · THE AWAKENING · START TO CONTINUE':`DAY ${expedition.survival?.day||1} · ${completed} / 5 OUTPOST SYSTEMS · START TO CONTINUE`;
       $('saved-expedition').hidden = false;
     }
   } catch { /* Missing progress means a fresh expedition. */ }
@@ -49,7 +49,7 @@
         <div><span>Mission log / pause</span><span><kbd>M</kbd><em>/</em><kbd>Esc</kbd></span></div>
       </div>
       <h3 class="menu-section-label">YOUR MISSION</h3><ol class="menu-mission-list">${missions}</ol>
-      <p class="menu-tip">Day 1 is for exploring and finding food and water storage. Prepare each morning: eat, drink, and check the weather. Follow the gold marker or open the day journal to choose a destination. Return through the rocket, then sleep in the ship’s pod to begin the next day. Your day, supplies, and story save on this device. Use Replay story to start Day 1 again.</p>
+      <p class="menu-tip">Finish breakfast, water, weather and EMU training before your first EVA on Day 1. From Day 2 you can leave with unfinished tasks. Eat meals to restore hunger and astronaut energy. Running uses oxygen and energy faster. Clean solar panels for more ship power. Storm exposure is fatal after 12 seconds outside. Follow the gold marker or open the day journal to choose a destination. Return through the rocket, then sleep in the ship’s pod to begin the next day. Your day, supplies, and story save on this device. Use Replay story to start Day 1 again.</p>
       <button class="menu-dialog-action" id="guide-done">Ready for launch <span>→</span></button>`);
     $('guide-done').addEventListener('click', () => dialog.close());
   });

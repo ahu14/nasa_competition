@@ -2,14 +2,27 @@ const test=require('node:test'),assert=require('node:assert/strict'),C=require('
 const D=require('../dist/donki.js'),fs=require('node:fs');
 const archive=JSON.parse(fs.readFileSync(require('node:path').join(__dirname,'../dist/assets/nasa/donki-snapshot.json'),'utf8')).historical;
 function crew(day=1){let s=C.freshState();C.finishIntro(s);s.earthSignal.phase='lost';s.orbi={phase:'complete',step:3,nameKnown:true,elapsed:2,response:''};s.survival.day=day;s.survival.food=100;s.survival.water=100;return C.normalizeState(s);}
-function prep(s){C.eatMeal(s);C.drinkWater(s);C.checkWeather(s);}
+function prep(s){C.eatMeal(s);C.drinkWater(s);C.checkWeather(s);;C.Power.confirm(s,{modes:{greenhouse:'Normal',habitat:'Normal',emu:'Normal'},outdoor:true});}
+
+test('ORBI and storm training use the current Sol and next Sol on every storm day',()=>{
+  const context={window:{}};require('node:vm').runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../dist/training.js'),'utf8'),context);
+  const html=s=>context.window.MissionTraining.prototype.stormHtml.call({C,recordsHtml:()=>''},s);
+  for(const day of [2,3,4,9,12,13]){
+    let s=crew(day);prep(s);s=C.normalizeState(JSON.parse(JSON.stringify(s)));
+    assert.match(C.orbiDialogue(s).text,new RegExp('Day '+day+' is a shelter day'));
+    assert.doesNotMatch(C.orbiDialogue(s).text,/airlock stays locked/);
+    assert.match(html(s),new RegExp('SHELTER ADVISED ON DAY '+day+'<'));
+    C.reviewStormRecords(s);for(const q of C.stormDecisions){C.chooseStormDecision(s,q.choices.find(c=>c.correct).id);C.advanceStormDecision(s);}
+    assert.match(html(s),new RegExp('begin Day '+(day+1)+'[.]'));
+  }
+});
 
 test('the EMU lesson follows the weather check and requires every component role',()=>{
   let s=crew();assert.equal(C.canExitShip(s),false);assert.equal(C.placeEmuPart(s,'helmet','helmet'),false);
   prep(s);assert.equal(C.nextPreparation(s).id,'emu');assert.equal(C.canExitShip(s),false);
   assert.equal(C.placeEmuPart(s,'helmet','plss'),false);assert.deepEqual(s.training.emu.placed,[]);
   for(const part of C.emuParts){assert.equal(C.learnEmuPart(s,part.id),true);assert.equal(C.placeEmuPart(s,part.id,part.id),true);assert.equal(C.placeEmuPart(s,part.id,part.id),false);}
-  assert.equal(C.emuComplete(s),true);assert.equal(C.canExitShip(s),true);assert.equal(C.nextPreparation(s),undefined);
+  assert.equal(C.emuComplete(s),true);C.Power.confirm(s,{modes:s.powerPlan.modes,outdoor:true});assert.equal(C.canExitShip(s),true);assert.equal(C.nextPreparation(s),undefined);
   s=C.normalizeState(JSON.parse(JSON.stringify(s)));assert.equal(C.emuComplete(s),true);C.exitShip(s);assert.equal(s.location,'surface');assert.equal(C.placeEmuPart(s,'fake','fake'),false);
 });
 
@@ -19,15 +32,15 @@ test('matching progress saves midway and replay resets training without clearing
   C.complete(s,'solar');C.replayStory(s);assert.deepEqual(s.training.emu.placed,[]);assert.equal(s.training.storm.reviewed,false);assert.equal(s.tasks.solar,true);
 });
 
-test('Day 2 stays indoors before and after the weather check and the storm drill',()=>{
-  const s=crew(2);assert.equal(C.canExitShip(s),false);assert.equal(C.reviewStormRecords(s),false);prep(s);
-  assert.equal(C.weatherFor(2).storm,true);assert.equal(C.nextPreparation(s),undefined);assert.equal(C.canExitShip(s),false);assert.equal(C.exitShip(s),false);
+test('Day 2 permits departure while the storm drill still guides safe indoor work',()=>{
+  const s=crew(2);C.Power.confirm(s,{modes:s.powerPlan.modes,outdoor:true});assert.equal(C.canExitShip(s),true);assert.equal(C.reviewStormRecords(s),false);prep(s);
+  assert.equal(C.weatherFor(2).storm,true);assert.equal(C.nextPreparation(s),undefined);C.Power.confirm(s,{modes:s.powerPlan.modes,outdoor:true});assert.equal(C.canExitShip(s),true);assert.ok(C.exitShip(s));C.enterShip(s);
   assert.equal(C.dayGoals(s).some(g=>g.station==='solar'),false);assert.equal(C.orbiNeedsAttention(s),true);
   C.reviewStormRecords(s);
   for(const question of C.stormDecisions){C.chooseStormDecision(s,question.choices.find(c=>c.correct).id);assert.equal(C.advanceStormDecision(s),true);}
-  assert.equal(C.stormComplete(s),true);assert.equal(C.canExitShip(s),false);assert.equal(C.exitShip(s),false);assert.equal(C.restStatus(s).allowed,true);
+  assert.equal(C.stormComplete(s),true);C.Power.confirm(s,{modes:s.powerPlan.modes,outdoor:true});assert.equal(C.canExitShip(s),true);assert.equal(C.restStatus(s).allowed,true);
   assert.equal(C.startNextDay(s),true);assert.equal(s.survival.day,3);assert.equal(C.dayGoals(s)[0].station,'ship-support');assert.equal(s.orbi.nameKnown,true);assert.equal(s.preparation.weatherChecked,false);
-  for(const day of [3,4]){prep(s);assert.equal(C.canExitShip(s),false);for(const job of C.dayGoals(s)){const st=C.shipStations.find(st=>st.id===job.station);s.shipPlayer={x:st.ax,y:st.ay};assert.equal(C.performOperation(s,job.id),true);}assert.equal(C.startNextDay(s),true);}prep(s);assert.equal(s.survival.day,5);assert.equal(C.canExitShip(s),true);
+  for(const day of [3,4]){prep(s);C.Power.confirm(s,{modes:s.powerPlan.modes,outdoor:true});assert.equal(C.canExitShip(s),true);for(const job of C.dayGoals(s)){const st=C.shipStations.find(st=>st.id===job.station);s.shipPlayer={x:st.ax,y:st.ay};assert.equal(C.performOperation(s,job.id),true);}assert.equal(C.startNextDay(s),true);}prep(s);assert.equal(s.survival.day,5);C.Power.confirm(s,{modes:s.powerPlan.modes,outdoor:true});assert.equal(C.canExitShip(s),true);
 });
 
 test('unsafe decisions have scientific feedback and cannot advance until revised',()=>{
@@ -38,11 +51,11 @@ test('unsafe decisions have scientific feedback and cannot advance until revised
   assert.equal(C.chooseStormDecision(s,'not-a-choice'),null);
 });
 
-test('old Day 2 outside saves return to the cabin and corrupted training does not unlock it',()=>{
+test('storm EVA saves stay outside and corrupted training does not complete the drill',()=>{
   const s=crew(2);s.location='surface';C.complete(s,'solar');s.samples=4;delete s.training;
-  const migrated=C.normalizeState(s);assert.equal(migrated.location,'ship');assert.equal(migrated.tasks.solar,true);assert.equal(migrated.samples,4);assert.equal(C.stormComplete(migrated),false);
+  const migrated=C.normalizeState(s);assert.equal(migrated.location,'surface');assert.equal(migrated.tasks.solar,true);assert.equal(migrated.samples,4);assert.equal(C.stormComplete(migrated),false);
   const bad=C.normalizeState({...migrated,training:{emu:{placed:['helmet','fake','helmet'],learned:[]},storm:{reviewed:false,answers:['shelter','local','mass','monitor'],feedback:{choice:'shelter'}}}});
-  assert.deepEqual(bad.training.emu.placed,['helmet']);assert.equal(bad.training.storm.answers.length,0);assert.equal(bad.training.storm.feedback,null);assert.equal(C.canExitShip(bad),false);
+  assert.deepEqual(bad.training.emu.placed,['helmet']);assert.equal(bad.training.storm.answers.length,0);assert.equal(bad.training.storm.feedback,null);C.enterShip(bad);C.Power.confirm(bad,{modes:bad.powerPlan.modes,outdoor:true});assert.equal(C.canExitShip(bad),true);
 });
 
 test('the bundled fallback contains dated real FLR, CME, SEP and notification records',()=>{

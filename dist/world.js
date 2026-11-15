@@ -4,8 +4,9 @@
   'use strict';
   const C = window.NOVACore;
   class MarsWorld {
-    constructor(image) {
+    constructor(image,dustySolar) {
       this.image = image;
+      this.dustySolar=dustySolar;
       this.tiles = new Map();
       this.stamps = [];
       const stamp = (x, y, w, h, points) => {
@@ -33,7 +34,7 @@
       const owners = ['rocket','greenhouse','habitat','solar','solar','solar','solar','solar','solar','rover','crystals','flag'];
       this.sites = this.stamps.slice(0,owners.length).map((sprite,i) => {
         const station = C.stations.find(s => s.id === owners[i]);
-        return { ...sprite, x: sprite.x + station.dx, y: sprite.y + station.dy };
+        return { ...sprite, owner:owners[i], x: sprite.x + station.dx, y: sprite.y + station.dy };
       });
       const depot=document.createElement('canvas');depot.width=380;depot.height=350;
       const p=depot.getContext('2d');p.imageSmoothingEnabled=false;
@@ -42,7 +43,7 @@
       r(49,78,232,15,'#392f35');r(42,91,244,9,'#687779');r(38,103,252,10,'#fff0cc');
       for(let x=41;x<291;x+=48){r(x,114,3,184,'#d1b69b');r(x+3,115,4,179,'#ecd2b2');}
       r(31,286,266,15,'#e0a056');r(38,302,254,10,'#998d81');r(50,313,234,8,'#3d3b3b');
-      r(83,119,162,57,'#324c51');r(90,125,148,43,'#203b45');p.textAlign='center';p.font='bold 12px Consolas,monospace';p.fillStyle='#efdfae';p.fillText('NOVA SUPPLY DEPOT',164,142);p.font='8px Consolas,monospace';p.fillStyle='#9dcfc1';p.fillText('FOOD  /  WATER',164,158);
+      r(83,119,162,57,'#324c51');r(90,125,148,43,'#203b45');p.textAlign='center';p.font='bold 12px Consolas,monospace';p.fillStyle='#efdfae';p.fillText('NOVA SUPPLY DEPOT',164,142);p.font='8px Consolas,monospace';p.fillStyle='#9dcfc1';p.fillText('FOOD RATIONS',164,158);
       r(136,213,76,99,'#4a4040');r(143,220,62,87,'#638b92');r(149,226,50,79,'#274e5d');r(155,231,38,69,'#77c5d0');r(172,232,4,68,'#a7e7dc');r(132,312,85,8,'#e3b980');
       for(let x=50;x<117;x+=35){r(x,196,28,32,'#394b55');r(x+4,200,20,23,'#6ea5ba');r(x+5,201,17,4,'#abd1ce');}
       r(237,197,36,34,'#394b55');r(243,202,24,22,'#7ca7b3');
@@ -78,12 +79,13 @@
       if (this.tiles.size >= 72) this.tiles.delete(this.tiles.keys().next().value);
       this.tiles.set(key, tile); return tile;
     }
-    draw(ctx, bounds) {
+    draw(ctx, bounds, state) {
       const left = Math.floor((bounds.x - 160) / C.CHUNK), right = Math.floor((bounds.x + bounds.w + 160) / C.CHUNK);
       const top = Math.floor((bounds.y - 160) / C.CHUNK), bottom = Math.floor((bounds.y + bounds.h + 160) / C.CHUNK);
       for (let cy = top; cy <= bottom; cy++) for (let cx = left; cx <= right; cx++) ctx.drawImage(this.tile(cx, cy), cx * C.CHUNK, cy * C.CHUNK, C.CHUNK, C.CHUNK);
       this.drawPaths(ctx,bounds);
-      for (const s of this.sites) if (s.x+s.w >= bounds.x && s.x <= bounds.x+bounds.w && s.y+s.h >= bounds.y && s.y <= bounds.y+bounds.h) ctx.drawImage(s.image,s.x,s.y);
+      for (const s of this.sites) if (!(s.owner==='solar'&&!state?.solarClean&&this.dustySolar)&&s.x+s.w >= bounds.x && s.x <= bounds.x+bounds.w && s.y+s.h >= bounds.y && s.y <= bounds.y+bounds.h) ctx.drawImage(s.image,s.x,s.y);
+      if(!state?.solarClean&&this.dustySolar){const solar=C.stations.find(s=>s.id==='solar'),x=35+solar.dx,y=390+solar.dy;if(x+348>=bounds.x&&x<=bounds.x+bounds.w&&y+238>=bounds.y&&y<=bounds.y+bounds.h)ctx.drawImage(this.dustySolar,x,y,348,238);}
       for (let cy = top; cy <= bottom; cy++) for (let cx = left; cx <= right; cx++) {
         for (const o of C.getChunk(cx, cy).objects) {
           const sprite = o.type === 'crater' ? this.crater : o.type === 'ice' ? this.ice : o.variant === 1 ? this.smallRock : this.rock;
