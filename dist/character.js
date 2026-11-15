@@ -2,7 +2,8 @@
 (() => {
   'use strict';
   class AstronautSprites {
-    constructor() {
+    constructor(assetPath = 'assets/astronaut/frames') {
+      this.assetPath = assetPath;
       this.frames = { down: [], left: [], right: [], up: [] };
       this.idle = null;
       this.ready = null;
@@ -12,8 +13,8 @@
       const load = name => new Promise((resolve, reject) => {
         const image = new Image();
         image.onload = () => resolve(image);
-        image.onerror = () => reject(new Error(`Could not load astronaut frame ${name}. Check assets/astronaut/frames, then reload.`));
-        image.src = `assets/astronaut/frames/${name}.svg`;
+        image.onerror = () => reject(new Error(`Could not load character frame ${name}. Check ${this.assetPath}, then reload.`));
+        image.src = `${this.assetPath}/${name}.svg`;
       });
       const jobs = [];
       for (const direction of Object.keys(this.frames)) {

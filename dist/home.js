@@ -9,9 +9,9 @@
   } catch { /* The menu also works with storage disabled. */ }
   try {
     const expedition = JSON.parse(localStorage.getItem('nova-mars-outpost-v1'));
-    if (expedition?.version === 1 && (expedition.seconds > 0 || Object.values(expedition.tasks || {}).some(Boolean))) {
+    if (expedition?.version === 1 && (expedition.seconds > 0 || expedition.introStep > 0 || expedition.introComplete || Object.values(expedition.tasks || {}).some(Boolean))) {
       const completed = window.NOVACore.tasks.filter(task => expedition.tasks?.[task.id] === true).length;
-      $('saved-expedition').textContent = `SAVED EXPEDITION · ${completed} / 5 MISSIONS · START TO CONTINUE`;
+      $('saved-expedition').textContent = expedition.introComplete===false&&expedition.introStep>0?'SAVED STORY · THE AWAKENING · START TO CONTINUE':`SAVED EXPEDITION · ${completed} / 5 MISSIONS · START TO CONTINUE`;
       $('saved-expedition').hidden = false;
     }
   } catch { /* Missing progress means a fresh expedition. */ }
@@ -30,8 +30,9 @@
   $('how-to-play').addEventListener('click', () => {
     const missions = window.NOVACore.tasks.map((task, i) => `<li><span>${i + 1}</span>${task.label}</li>`).join('');
     openDialog('FLIGHT MANUAL · EXPEDITION 004', 'How to play', `
-      <p class="menu-intro">Welcome to Mars, astronaut. Bring the outpost to life, collect a discovery, and finish your first expedition.</p>
+      <p class="menu-intro">She wakes alone inside a spaceship, with no memory of her past — not even her own name. Follow her first steps into an unfamiliar world.</p>
       <div class="menu-control-list">
+        <div><span>Continue the story</span><span><kbd>E</kbd><em>or Enter / tap</em></span></div>
         <div><span>Move</span><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><em>or arrow keys</em></span></div>
         <div><span>Walk to a place</span><span>Click or tap</span></div>
         <div><span>Interact</span><span><kbd>E</kbd><em>or Space</em></span></div>
@@ -41,7 +42,7 @@
         <div><span>Mission log / pause</span><span><kbd>M</kbd><em>/</em><kbd>Esc</kbd></span></div>
       </div>
       <h3 class="menu-section-label">YOUR MISSION</h3><ol class="menu-mission-list">${missions}</ol>
-      <p class="menu-tip">The stations are spread across the desert. Follow the roads or click the gold direction marker to walk to your next task. Touch controls appear on phones. Your progress saves on this device.</p>
+      <p class="menu-tip">Explore the spaceship after waking up. Watch for ! alerts on the Earth screen and ORBI’s TV. ORBI may know something about you. The airlock leads outside; return through the rocket whenever you like. On Mars, follow the roads or gold direction marker. Touch controls appear on phones. Your progress saves on this device.</p>
       <button class="menu-dialog-action" id="guide-done">Ready for launch <span>→</span></button>`);
     $('guide-done').addEventListener('click', () => dialog.close());
   });

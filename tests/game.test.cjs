@@ -149,3 +149,171 @@ test('relocating stations preserves saved mission progress and rescues blocked o
   assert.equal(restored.tasks.solar,true);assert.equal(restored.tasks.greenhouse,true);
   assert.deepEqual(restored.player,C.HOME);
 });
+
+test('new expeditions begin with the awakening scene',()=>{
+  const s=C.freshState();assert.equal(s.introComplete,false);assert.equal(s.introStep,0);
+});
+
+test('story progress survives reload and invalid line numbers are normalized',()=>{
+  const s=C.freshState();s.introStep=2;
+  assert.deepEqual(C.normalizeState(JSON.parse(JSON.stringify(s))),s);
+  assert.equal(C.normalizeState({...s,introStep:999}).introStep,3);
+  assert.equal(C.normalizeState({...s,introStep:-12}).introStep,0);
+  assert.equal(C.normalizeState({...s,introStep:NaN}).introStep,0);
+});
+
+test('the introduction ends in the explorable cabin with the surface exit ready',()=>{
+  const s=C.freshState();s.oxygen=83;C.complete(s,'solar');
+  C.finishIntro(s);const rocket=C.stations.find(s=>s.id==='rocket');
+  assert.equal(s.introComplete,true);assert.equal(s.introStep,3);
+  assert.equal(s.location,'ship');assert.deepEqual(s.shipPlayer,C.SHIP.spawn);
+  assert.deepEqual(s.player,{x:rocket.ax,y:rocket.ay});assert.ok(C.walkable(s.player.x,s.player.y));
+  assert.equal(s.tasks.solar,true);assert.equal(s.oxygen,83);
+  assert.deepEqual(C.normalizeState(JSON.parse(JSON.stringify(s))),s);
+});
+
+test('all spaceship areas are reachable from the sleep pod and the airlock',()=>{
+  for(const from of [C.SHIP.spawn,C.SHIP.entrance])for(const station of C.shipStations){
+    assert.ok(C.shipWalkable(station.ax,station.ay),`${station.id} has an open approach`);
+    const route=C.findPath(from,{x:station.ax,y:station.ay},'ship');
+    assert.ok(route.length,`${station.id} can be reached inside the cabin`);
+    assert.ok(route.every(p=>C.shipWalkable(p.x,p.y)));
+    assert.ok(Math.hypot(route.at(-1).x-station.x,route.at(-1).y-station.y)<station.radius);
+  }
+});
+
+test('spaceship walls and furniture block movement',()=>{
+  for(const [x,y] of [[0,0],[1101,500],[550,240],[550,800],[375,450],[180,390],[830,400],[830,500],[180,580]])assert.equal(C.shipWalkable(x,y),false);
+  assert.ok(C.shipWalkable(C.SHIP.spawn.x,C.SHIP.spawn.y));
+  assert.ok(C.shipWalkable(C.SHIP.entrance.x,C.SHIP.entrance.y));
+});
+
+test('the astronaut can leave and re-enter the spaceship repeatedly without resetting progress',()=>{
+  const s=C.freshState(),rocket=C.stations.find(s=>s.id==='rocket');
+  C.finishIntro(s);C.complete(s,'solar');C.contactEarth(s);s.samples=4;
+  for(let i=0;i<3;i++){
+    C.exitShip(s);assert.equal(s.location,'surface');assert.deepEqual(s.player,{x:rocket.ax,y:rocket.ay});assert.ok(C.walkable(s.player.x,s.player.y));
+    C.enterShip(s);assert.equal(s.location,'ship');assert.deepEqual(s.shipPlayer,C.SHIP.entrance);assert.ok(C.shipWalkable(s.shipPlayer.x,s.shipPlayer.y));
+    assert.equal(s.tasks.solar,true);assert.equal(s.earthContacted,true);assert.equal(s.samples,4);assert.equal(s.introComplete,true);
+  }
+});
+
+test('interior position and Earth contact survive saving and reloading',()=>{
+  const s=C.freshState();C.finishIntro(s);s.shipPlayer={x:830,y:560};C.contactEarth(s);
+  assert.deepEqual(C.normalizeState(JSON.parse(JSON.stringify(s))),s);
+  const repaired=C.normalizeState({...s,shipPlayer:{x:375,y:450}});assert.deepEqual(repaired.shipPlayer,C.SHIP.spawn);assert.equal(repaired.earthContacted,true);
+});
+
+test('Earth can be contacted only from the explorable ship and never duplicates mission rewards',()=>{
+  const s=C.freshState();assert.equal(C.contactEarth(s),false);C.finishIntro(s);
+  const tasks={...s.tasks},samples=s.samples;
+  assert.equal(C.contactEarth(s),true);assert.equal(C.contactEarth(s),true);assert.equal(s.earthContacted,true);
+  assert.deepEqual(s.tasks,tasks);assert.equal(s.samples,samples);
+  C.exitShip(s);assert.equal(C.contactEarth(s),false);
+});
+
+test('older completed-introduction saves resume on the surface',()=>{
+  const s=C.freshState();s.introComplete=true;delete s.location;delete s.shipPlayer;delete s.earthContacted;
+  const restored=C.normalizeState(s);assert.equal(restored.location,'surface');assert.deepEqual(restored.player,s.player);assert.equal(restored.earthContacted,false);
+});
+
+test('the spaceship camera follows the character within a finite cabin on all screen sizes',()=>{
+  for(const [w,h] of [[1440,1000],[390,844],[844,390]])for(const p of [C.SHIP.spawn,{x:950,y:700}]){
+    const camera=C.shipCameraFor(p,w,h);assert.ok(Number.isFinite(camera.x)&&Number.isFinite(camera.y)&&camera.scale>0);
+    const x=(p.x-camera.x)*camera.scale,y=(p.y-camera.y)*camera.scale;
+    assert.ok(x>=0&&x<=w&&y>=0&&y<=h);
+  }
+});
+
+test('older saves receive the opening scene without losing their expedition',()=>{
+  const s=C.freshState();C.complete(s,'solar');C.complete(s,'greenhouse');s.seconds=240;s.samples=3;
+  delete s.introComplete;delete s.introStep;
+  const restored=C.normalizeState(s);
+  assert.equal(restored.introComplete,false);assert.equal(restored.introStep,0);
+  assert.equal(restored.tasks.solar,true);assert.equal(restored.tasks.greenhouse,true);assert.equal(restored.samples,3);assert.equal(restored.seconds,240);
+});
+
+test('an incoming Earth call waits until after waking and four seconds spent inside',()=>{
+  let s=C.freshState();
+  assert.equal(C.tickEarthSignal(s,20),'');assert.equal(s.earthSignal.elapsed,0);
+  C.finishIntro(s);assert.equal(C.tickEarthSignal(s,2),'');
+  s=C.normalizeState(JSON.parse(JSON.stringify(s)));assert.equal(s.earthSignal.elapsed,2);
+  C.exitShip(s);assert.equal(C.tickEarthSignal(s,100),'');assert.equal(s.earthSignal.elapsed,2);
+  C.enterShip(s);assert.equal(C.tickEarthSignal(s,1.9),'');assert.equal(s.earthSignal.phase,'waiting');
+  assert.equal(C.tickEarthSignal(s,.2),'incoming');assert.equal(C.earthStatus(s),'INCOMING!');
+  assert.equal(C.tickEarthSignal(s,100),'');assert.equal(s.earthContacted,false);
+  assert.equal(Object.values(s.tasks).some(Boolean),false);assert.equal(s.samples,0);
+});
+
+test('the rescue promise waits for the player, then the final reply fails and disconnects',()=>{
+  let s=C.freshState();C.finishIntro(s);C.tickEarthSignal(s,4);C.contactEarth(s);
+  assert.equal(C.earthStatus(s),'CONNECTED');assert.equal(s.earthSignal.line,0);
+  C.advanceEarthCall(s);C.advanceEarthCall(s);
+  assert.equal(s.earthSignal.rescueDays,15);assert.match(C.earthDialogue[s.earthSignal.line].text,/about 15 days/);
+  assert.equal(C.tickEarthSignal(s,999),'');assert.equal(s.earthSignal.phase,'connected');
+  s=C.normalizeState(JSON.parse(JSON.stringify(s)));assert.equal(s.earthSignal.line,2);
+  C.advanceEarthCall(s);C.advanceEarthCall(s);assert.equal(C.advanceEarthCall(s),false);
+  assert.equal(C.tickEarthSignal(s,1),'');
+  s=C.normalizeState(JSON.parse(JSON.stringify(s)));
+  assert.equal(C.tickEarthSignal(s,.5),'error');assert.equal(C.earthStatus(s),'SYSTEM ERROR');
+  assert.equal(C.tickEarthSignal(s,1.5),'lost');assert.equal(C.earthStatus(s),'SIGNAL LOST');
+  assert.equal(s.location,'ship');assert.equal(s.earthContacted,true);assert.equal(s.earthSignal.rescueDays,15);
+  assert.equal(C.contactEarth(s),false);assert.equal(C.advanceEarthCall(s),false);
+  C.exitShip(s);C.enterShip(s);assert.equal(C.tickEarthSignal(s,999),'');
+  assert.deepEqual(C.normalizeState(JSON.parse(JSON.stringify(s))),s);
+});
+
+test('older expedition saves gain the incoming story and corrupted signal fields are repaired',()=>{
+  const s=C.freshState();C.finishIntro(s);C.complete(s,'solar');C.complete(s,'crystals');s.earthContacted=true;
+  delete s.earthSignal;
+  const restored=C.normalizeState(s);assert.equal(restored.earthSignal.phase,'waiting');
+  assert.equal(restored.tasks.solar,true);assert.equal(restored.tasks.crystals,true);assert.equal(restored.samples,3);assert.equal(restored.location,'ship');
+  assert.equal(C.normalizeState({...s,earthSignal:{phase:'unknown'}}).earthSignal.phase,'waiting');
+  const repaired=C.normalizeState({...s,earthSignal:{phase:'lost',elapsed:Infinity,line:-9,faultElapsed:NaN,rescueDays:-15}});
+  assert.equal(repaired.earthSignal.line,C.earthDialogue.length-1);assert.equal(repaired.earthSignal.rescueDays,15);
+  assert.equal(repaired.earthSignal.faultElapsed,0);assert.equal(repaired.earthSignal.elapsed,0);
+  for(const dt of [NaN,Infinity,-1,0])assert.equal(C.tickEarthSignal(restored,dt),'');
+  assert.equal(restored.earthSignal.elapsed,0);
+});
+
+test('ORBI stays asleep until Earth disconnects and wakes without revealing the name early',()=>{
+  const s=C.freshState();assert.equal(C.playerName(s),'???');assert.equal(C.beginOrbi(s),false);
+  C.finishIntro(s);assert.equal(C.beginOrbi(s),false);assert.equal(C.tickOrbi(s,20),'');
+  C.contactEarth(s);for(let i=0;i<4;i++)C.advanceEarthCall(s);
+  C.tickEarthSignal(s,1.5);C.tickEarthSignal(s,1.5);
+  assert.equal(s.orbi.phase,'booting');assert.equal(C.orbiNeedsAttention(s),false);
+  C.exitShip(s);assert.equal(C.tickOrbi(s,20),'');assert.equal(s.orbi.elapsed,0);
+  C.enterShip(s);assert.equal(C.tickOrbi(s,1),'');
+  const restored=C.normalizeState(JSON.parse(JSON.stringify(s)));
+  assert.equal(C.tickOrbi(restored,1),'orbi-ready');assert.equal(C.orbiNeedsAttention(restored),true);
+  assert.equal(C.playerName(restored),'???');assert.equal(C.tickOrbi(restored,20),'');
+});
+
+test('ORBI reveals the astronaut name, remembers either reply, and gives the actual next task',()=>{
+  for(const reply of ['', 'tasks']){
+    let s=C.freshState();C.finishIntro(s);s.earthSignal.phase='lost';s=C.normalizeState(s);
+    C.complete(s,'solar');const originalTasks={...s.tasks};
+    assert.equal(C.beginOrbi(s),true);assert.equal(C.playerName(s),C.ASTRONAUT_NAME);
+    assert.match(C.orbiDialogue(s).text,new RegExp(`Morning, ${C.ASTRONAUT_NAME}`));
+    C.advanceOrbi(s,reply);assert.equal(s.orbi.response,reply);
+    s=C.normalizeState(JSON.parse(JSON.stringify(s)));assert.equal(s.orbi.step,1);assert.equal(s.orbi.nameKnown,true);
+    assert.match(C.orbiDialogue(s).text,new RegExp(`You’re ${C.ASTRONAUT_NAME}`));
+    C.advanceOrbi(s);assert.match(C.orbiDialogue(s).text,/15 days/);
+    C.advanceOrbi(s);assert.match(C.orbiDialogue(s).text,/bring the greenhouse to life/);
+    C.advanceOrbi(s);assert.equal(s.orbi.phase,'complete');assert.equal(C.orbiNeedsAttention(s),false);
+    assert.deepEqual(s.tasks,originalTasks);assert.equal(C.advanceOrbi(s),false);
+    C.exitShip(s);assert.equal(C.beginOrbi(s),false);C.enterShip(s);assert.equal(C.beginOrbi(s),true);
+    assert.match(C.orbiDialogue(s).text,/Welcome back/);assert.equal(s.orbi.phase,'complete');
+    assert.deepEqual(C.normalizeState(JSON.parse(JSON.stringify(s))),s);
+  }
+});
+
+test('existing disconnected saves receive ORBI, and invalid companion saves cannot reveal a name early',()=>{
+  const s=C.freshState();C.finishIntro(s);s.earthSignal.phase='lost';delete s.orbi;C.complete(s,'solar');
+  const migrated=C.normalizeState(s);assert.equal(migrated.orbi.phase,'pending');assert.equal(migrated.tasks.solar,true);
+  assert.equal(C.playerName(migrated),'???');
+  const bad=C.normalizeState({...s,orbi:{phase:'talking',step:Infinity,elapsed:-20,nameKnown:false,response:'invalid'}});
+  assert.equal(bad.orbi.step,0);assert.equal(bad.orbi.elapsed,0);assert.equal(bad.orbi.nameKnown,true);assert.equal(bad.orbi.response,'');
+  const tooEarly=C.normalizeState({...s,earthSignal:{phase:'waiting'},orbi:{phase:'complete',step:3,nameKnown:true}});
+  assert.equal(tooEarly.orbi.phase,'locked');assert.equal(C.playerName(tooEarly),'???');
+});

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+<defs><linearGradient id="wall" x2="0" y2="1"><stop stop-color="#eee0c5"/><stop offset="1" stop-color="#d3ba9a"/></linearGradient><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#d98d71"/><stop offset="1" stop-color="#fac598"/></linearGradient><pattern id="tiles" width="120" height="80" patternUnits="userSpaceOnUse"><path d="M0 0H120V80H0Z" fill="none" stroke="#a78b74" stroke-width="2"/></pattern></defs>
+<path fill="url(#wall)" d="M0 0h1440v900H0z"/>
+<path fill="#c3a086" d="M0 0h1440v53H0z"/><path fill="#eed3b1" stroke="#a77c64" stroke-width="5" d="M0 53h1440v22H0z"/>
+<path fill="#d2b092" d="M24 78h18v637H24zM1397 78h18v637h-18zM689 78h18v637h-18z"/><path fill="#af8c71" d="M42 78h4v637h-4zM1415 78h4v637h-4zM707 78h4v637h-4z"/>
+<g stroke="#987a65" stroke-width="7"><rect x="74" y="108" width="568" height="273" rx="8" fill="#d3d0b5"/><rect x="796" y="108" width="568" height="273" rx="8" fill="#d3d0b5"/></g>
+<path fill="url(#sky)" d="M88 122h540v245H88zM810 122h540v245H810z"/>
+<circle cx="1196" cy="197" r="58" fill="#f4c99e"/>
+<path fill="#d49676" d="m88 291 57-44 51 17 67-65 97 28 70 67 71-40 127 26v87H88zM810 298l71-40 62 17 86-64 52 23 84 72 67-36 118 23v74H810z"/>
+<path fill="#b47962" d="m88 326 89-27 70 23 71-35 89 33 109-32 112 23v56H88zM810 331l96-30 78 18 69-30 105 33 84-17 108 28v34H810z"/>
+<path fill="#f2dfc3" opacity=".28" d="m104 122 59 0 221 245h-59zM833 122h44l217 245h-44z"/>
+<path stroke="#aa9b85" stroke-width="9" d="M359 120v249M1081 120v249"/><path stroke="#e5d5b5" stroke-width="3" d="M355 120v249M1077 120v249"/>
+<path fill="#d2b092" stroke="#ad8b70" stroke-width="3" d="M0 408h1440v26H0z"/><path fill="#bfac91" d="M0 434h1440v303H0z"/><path fill="url(#tiles)" d="M0 434h1440v303H0z"/>
+<path fill="#e8d1ac" stroke="#b99473" stroke-width="4" d="M74 471h180v113H74zM1186 471h180v113h-180z"/><g fill="#b59877"><path d="M94 493h140v7H94zM94 511h140v7H94zM94 529h140v7H94zM94 547h140v7H94zM1206 493h140v7h-140zM1206 511h140v7h-140zM1206 529h140v7h-140zM1206 547h140v7h-140z"/></g>
+<path fill="#c7a084" stroke="#a37d65" stroke-width="4" d="M0 714h1440v25H0z"/><path fill="#d6ba94" d="M0 739h1440v161H0z"/><path fill="none" stroke="#b89b7d" stroke-width="3" d="M0 811h1440M0 884h1440M180 739l-90 161M480 739l-30 161M960 739l30 161M1260 739l90 161"/>
+<g fill="#a48268"><path d="M52 657h76v8H52zM1312 657h76v8h-76z"/><rect x="60" y="609" width="60" height="40" rx="3"/><rect x="1320" y="609" width="60" height="40" rx="3"/></g>
+<g fill="#8c9d75"><path d="M88 609c-37-12-45-39-30-64 29 17 38 34 30 64M88 609c30-19 40-42 24-60-26 17-28 36-24 60M1350 609c-37-12-45-39-30-64 29 17 38 34 30 64M1350 609c30-19 40-42 24-60-26 17-28 36-24 60"/></g>
+</svg>

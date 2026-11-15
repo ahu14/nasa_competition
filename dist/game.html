@@ -8,6 +8,7 @@
   <title>NOVA — Mars Outpost</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="orbi.css">
 </head>
 <body class="play-screen">
   <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
@@ -33,24 +34,44 @@
         <canvas id="game" tabindex="0" aria-label="Explore the Mars outpost. Use arrow keys or WASD to move, and E to interact. You can also click a destination."></canvas>
         <div class="vignette" aria-hidden="true"></div>
         <button class="mission-card" id="mission-card" aria-label="Open current mission"><span class="eyebrow"><span class="mini-diamond"></span>CURRENT MISSION<span class="mission-total" id="nav-count">0/5</span><svg><use href="#i-arrow"/></svg></span><strong id="mission-title">A place to call home.</strong><span class="mission-description" id="mission-description">A little life on a red planet.</span><span class="mission-step"><span id="step-number">01</span><span id="step-label">Restore the solar array</span><svg><use href="#i-arrow"/></svg></span><span class="progress-segments" id="progress-segments"><i></i><i></i><i></i><i></i><i></i></span></button>
+        <div class="ship-panel" id="ship-panel" hidden><span class="eyebrow">NOVA · SPACESHIP<span id="ship-link-status">EARTH: STANDBY</span></span><div><button id="ship-earth-nav">Earth screen <span id="earth-nav-indicator">↗</span></button><button id="ship-orbi-nav">ORBI <span id="orbi-nav-indicator">↗</span></button><button id="ship-exit-nav">Airlock <span>↗</span></button></div></div>
+        <button class="earth-notification" id="earth-notification" aria-label="Incoming transmission from Earth" title="Incoming transmission from Earth" hidden>!</button>
+        <button class="earth-notification orbi-notification" id="orbi-notification" aria-label="Talk to ORBI" title="ORBI has a message for you" hidden>!</button>
         <div class="resource-hud" aria-label="Suit resources"><div class="resource"><span class="oxygen-icon">O<sub>2</sub></span><span><small>OXYGEN</small><b id="oxygen-value">98<span>%</span></b></span><span class="resource-track"><i id="oxygen-bar"></i></span></div><div class="resource"><svg class="energy-icon"><use href="#i-bolt"/></svg><span><small>ENERGY</small><b id="energy-value">72<span>%</span></b></span><span class="resource-track energy-track"><i id="energy-bar"></i></span></div><div class="resource sample-resource"><svg><use href="#i-crystal"/></svg><span><small>SAMPLES</small><b id="samples-value">00</b></span></div></div>
         <nav class="game-actions" aria-label="Game controls"><button class="icon-button" id="sound-button" aria-label="Turn sound on" title="Turn sound on"><svg><use href="#i-muted"/></svg></button><button class="icon-button" id="guide-button" aria-label="Field guide" title="How to play (H)"><svg><use href="#i-book"/></svg></button><button class="icon-button" id="pause-button" aria-label="Pause game" title="Pause (Esc)"><svg><use href="#i-pause"/></svg></button></nav>
         <button class="destination-beacon" id="destination-beacon" aria-label="Walk to next station" hidden><svg id="destination-arrow"><use href="#i-arrow"/></svg><span id="destination-name"></span><b id="destination-distance"></b></button>
-        <div class="welcome" id="welcome"><span class="welcome-kicker">WELCOME TO YOUR NEXT CHAPTER</span><strong>Far from Earth.<br>Closer to something new.</strong><span>Take a walk. Make yourself at home.</span><button id="begin-button">Let’s explore <svg><use href="#i-arrow"/></svg></button></div>
-        <div class="location-chip"><svg><use href="#i-pin"/></svg><span>NOVA BASE <span class="location-divider">/</span> <b id="location-name">THE OUTPOST</b></span><span class="live-dot"></span><span id="world-coordinates" hidden>X +000 · Y +000</span></div>
+        <div class="welcome" id="welcome"><span class="welcome-kicker">OUTSIDE THE SHIP</span><strong>No name. No memories.<br>Only a red horizon.</strong><span>Find a signal. Find your way home.</span><button id="begin-button">Let’s explore <svg><use href="#i-arrow"/></svg></button></div>
+        <div class="location-chip"><svg><use href="#i-pin"/></svg><span><span id="crew-name-label">NOVA BASE</span> <span class="location-divider">/</span> <b id="location-name">THE OUTPOST</b></span><span class="live-dot"></span><span id="world-coordinates" hidden>X +000 · Y +000</span></div>
         <button class="interact-prompt" id="interact-prompt" hidden><kbd>E</kbd><span id="interact-label">Interact</span><svg><use href="#i-arrow"/></svg></button>
-        <div class="exploration-map"><span class="minimap-heading">STATION SCANNER <span>N ↑</span></span><canvas id="minimap" width="148" height="100" aria-label="Station map. The gold triangle is you; the green marker is home base."></canvas><span class="base-distance" id="base-distance">BASE · 0 m</span></div>
+        <div class="exploration-map"><span class="minimap-heading"><span id="scanner-title">STATION SCANNER</span><span>N ↑</span></span><canvas id="minimap" width="148" height="100" aria-label="Station map. The gold triangle is you; the green marker is home base."></canvas><span class="base-distance" id="base-distance">BASE · 0 m</span></div>
         <div class="map-tools"><button class="icon-button recall-button" id="recall-button" aria-label="Return to base" title="Return to base (B)"><svg><use href="#i-home"/></svg></button><span class="zoom-controls"><button id="zoom-out" aria-label="Zoom out" title="Zoom out (−)">−</button><span id="zoom-value">100%</span><button id="zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button></span><button class="icon-button" id="fullscreen-button" aria-label="Toggle fullscreen" title="Fullscreen"><svg><use href="#i-expand"/></svg></button></div>
         <div class="toast" id="toast" role="status" aria-live="polite" hidden><span class="toast-icon"><svg><use href="#i-check"/></svg></span><span id="toast-text"></span></div>
         <div class="touch-controls" aria-label="Movement controls"><button data-dir="up" aria-label="Move up">↑</button><button data-dir="left" aria-label="Move left">←</button><button data-dir="down" aria-label="Move down">↓</button><button data-dir="right" aria-label="Move right">→</button></div>
+        <section class="story-scene" id="story-scene" aria-labelledby="story-chapter" hidden>
+          <div class="story-chapter"><span>PROLOGUE · 01</span><h1 id="story-chapter">The awakening</h1><small>SPACESHIP · LOCATION UNKNOWN</small></div>
+          <div class="story-bubble" id="story-bubble" role="status" aria-live="polite"><strong id="story-thought">Who am I?</strong><span id="story-detail">I can’t even remember my own name.</span></div>
+          <p class="story-caption">You open your eyes to a quiet hum.<br>Your mind is a complete blank.</p>
+          <button class="story-next" id="story-next" aria-label="Continue story"><span id="story-next-label">Continue</span><span class="story-next-key"><kbd>E</kbd><span>→</span></span></button>
+          <div class="wake-fade" aria-hidden="true"></div>
+        </section>
         <div class="loading" id="loading"><div class="loading-mark"><span></span><span></span><span></span></div><b>ESTABLISHING UPLINK</b><span>Your little corner of the universe is loading.</span></div>
       </section>
     </main>
   </div>
   <dialog id="dialog" aria-labelledby="dialog-title"><div class="dialog-top"><span class="eyebrow" id="dialog-eyebrow">OUTPOST SYSTEMS</span><button class="icon-button" id="close-dialog" aria-label="Close dialog"><svg><use href="#i-close"/></svg></button></div><div id="dialog-content"></div></dialog>
+  <dialog class="orbi-dialog" id="orbi-dialog" aria-labelledby="orbi-speaker" aria-describedby="orbi-speech">
+    <div class="orbi-set">
+      <div class="orbi-scene-top"><span><i></i>NOVA <b>/</b> CREW COMPANION</span><button id="orbi-close" aria-label="Back to spaceship">← <span>Back to cabin</span></button></div>
+      <div class="orbi-tv"><div class="orbi-tv-top"><span>LOCAL CHANNEL</span><span><i></i> ONLINE</span></div><div class="orbi-tv-glass"><div class="orbi-orbit" aria-hidden="true"></div><img src="assets/orbi/orbi.svg" alt="ORBI, a smiling white and orange pixel robot waving hello" class="orbi-mascot"><div class="orbi-tv-caption">YOUR LITTLE CORNER OF THE UNIVERSE.</div></div><div class="orbi-tv-controls"><span>O R B I</span><i></i><i></i><b></b></div></div>
+      <section class="orbi-conversation"><div class="orbi-speech-bubble"><h1 id="orbi-speaker">ORBI</h1><p id="orbi-speech" aria-live="polite"></p></div><div class="orbi-replies" id="orbi-replies" aria-label="Your reply"></div><div class="orbi-memory"><img src="assets/indoor/frames/idle.svg" alt="" aria-hidden="true"><div><span id="orbi-memory-label">A NAME TO REMEMBER</span><strong id="orbi-memory-name">Mira</strong><small id="orbi-memory-detail">Astronaut · NOVA expedition</small></div><span class="orbi-memory-star" aria-hidden="true">✦</span></div></section>
+      <div class="orbi-counter" aria-hidden="true"><span class="orbi-counter-panel">NOVA · HOME, FOR NOW.</span><i></i><i></i><i></i></div>
+      <p class="orbi-story-caption" id="orbi-caption"></p>
+    </div>
+  </dialog>
   <script src="core.js"></script>
   <script src="world.js"></script>
   <script src="character.js"></script>
+  <script src="intro.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
