@@ -42,12 +42,23 @@
 
   function roomStations(){const items=state.location==='habitat'?[['oxygen','OXYGEN'],['food','FOOD RESERVES'],['water','WATER TANK'],['power','POWER & SYSTEMS'],['ice-processor','ICE TO WATER']]:[['lettuce','RED ROMAINE LETTUCE'],['seed','NEW SEEDS'],['irrigation','IRRIGATION'],['oxygen-canister','OXYGEN CANISTERS']];return items.map(([id,name],i)=>({id,name,x:160+i*(items.length===5?195:220),y:410,ax:160+i*(items.length===5?195:220),ay:445,radius:95,labelX:160+i*(items.length===5?195:220),labelY:365})).concat({id:'room-exit',name:'AIRLOCK - EXIT',x:550,y:690,ax:550,ay:665,radius:85,labelX:550,labelY:735});}
   function roomWalkable(x,y){return Number.isFinite(x)&&Number.isFinite(y)&&x>=100&&x<=1000&&y>=405&&y<=710;}
-  function enterRoom(id){state.location=id;state.interiorPlayer={x:550,y:660};resetRoom();toast(id==='habitat'?'NOVA habitat. Walk to each console to check supplies and systems.':'Greenhouse. Collect oxygen, harvest mature lettuce, then plant new seeds.');}
+  function enterRoom(id){state.location=id;state.interiorPlayer={x:550,y:660};resetRoom();toast(id==='habitat'?'NOVA habitat. Walk to each console to check supplies and systems.':'Greenhouse. Inspect the lettuce trays, manage water and nutrients, and check grow-light power. ORBI can help remotely during storms.');}
   function leaveRoom(){const st=C.stations.find(s=>s.id===state.location);state.location='surface';state.player={x:st.ax,y:st.ay};resetRoom();}
   function resetRoom(){if(dialog.open)closeDialog();keys.clear();path=[];target=null;targetStation=null;footsteps.length=0;activeStation=null;hoverStation=null;syncIntro();resize();updateHud();updateInteraction();render();save();}
   function drawIceProcessor(st){const x=st.x;ctx.fillStyle='#709da6';ctx.fillRect(x-70,275,140,80);ctx.fillStyle='#182e40';ctx.fillRect(x-62,282,58,61);ctx.fillStyle='#a6e7ef';ctx.fillRect(x-53,291,17,19);ctx.fillRect(x-34,303,20,22);ctx.fillStyle='#305b72';ctx.fillRect(x+7,286,52,57);ctx.fillStyle='#70cee1';ctx.fillRect(x+12,339-state.survival.water*.45,42,state.survival.water*.45);ctx.fillStyle='#e3dbab';ctx.font='10px Consolas,monospace';ctx.fillText('ICE',x-48,340);ctx.fillStyle='#a9e6c1';ctx.fillRect(x-6,305,12,8);}
-  function drawRoom(){const green=state.location==='greenhouse';ctx.fillStyle='#0c1721';ctx.fillRect(0,0,1100,840);ctx.fillStyle=green?'#324b42':'#354955';ctx.fillRect(75,175,950,555);ctx.fillStyle=green?'#182f29':'#172b3b';ctx.fillRect(95,195,910,205);ctx.fillStyle='#aec5b6';ctx.font='22px Consolas, monospace';ctx.fillText(green?'NOVA / BOTANICAL DOME':'NOVA / HABITAT',115,235);ctx.font='13px Consolas, monospace';ctx.fillText('DAY '+state.survival.day+' - PRESSURIZED / SAFE TO BREATHE',115,263);ctx.strokeStyle='#91b5ad22';ctx.lineWidth=1;for(let x=100;x<=1000;x+=45){ctx.beginPath();ctx.moveTo(x,400);ctx.lineTo(x,720);ctx.stroke();}for(let y=405;y<=720;y+=45){ctx.beginPath();ctx.moveTo(95,y);ctx.lineTo(1005,y);ctx.stroke();}for(const st of roomStations().filter(st=>st.id!=='room-exit')){ctx.fillStyle='#13282e';ctx.fillRect(st.x-80,290,160,62);if(green&&st.id==='lettuce'){for(let i=0;i<5;i++){ctx.fillStyle=state.operations.harvestDay===state.survival.day?'#705743':'#9a6470';ctx.fillRect(st.x-65+i*28,310,18,24);ctx.fillStyle='#7fac73';ctx.fillRect(st.x-62+i*28,304,12,12);}}else if(st.id==='ice-processor'){drawIceProcessor(st);}else{ctx.fillStyle=green?'#91bc78':'#71c8bd';ctx.fillRect(st.x-65,301,130,33);ctx.fillStyle='#162e32';ctx.font='12px Consolas, monospace';ctx.fillText(st.name,st.x-58,322);}}ctx.fillStyle='#172c3a';ctx.fillRect(460,680,180,43);ctx.fillStyle='#9cd3bb';ctx.fillRect(475,685,150,5);}
+  function drawLettucePlants(st){
+    state.greenhouse.trays.forEach((tray,i)=>{
+      const x=st.x-58+i*45,size=tray.harvested?0:tray.age<3?2:tray.age<10?5:tray.age<24?9:tray.age<35?12:15;
+      ctx.fillStyle='#705743';ctx.fillRect(x,330,34,7);
+      ctx.fillStyle=C.Greenhouse.light(state)<40?'#556d62':'#b7db9b';ctx.fillRect(x,295,34,3);
+      if(!size)return;
+      ctx.fillStyle=state.greenhouse.health<40?'#a5975d':'#aa6479';ctx.fillRect(x+17-size,330-size*2,size*2,size*2);
+      ctx.fillStyle='#7fac73';ctx.fillRect(x+13,328-size*2,8,size*2);
+    });
+  }
+  function drawRoom(){const green=state.location==='greenhouse';ctx.fillStyle='#0c1721';ctx.fillRect(0,0,1100,840);ctx.fillStyle=green?'#324b42':'#354955';ctx.fillRect(75,175,950,555);ctx.fillStyle=green?'#182f29':'#172b3b';ctx.fillRect(95,195,910,205);ctx.fillStyle='#aec5b6';ctx.font='22px Consolas, monospace';ctx.fillText(green?'NOVA / BOTANICAL DOME':'NOVA / HABITAT',115,235);ctx.font='13px Consolas, monospace';ctx.fillText('DAY '+state.survival.day+' - PRESSURIZED / SAFE TO BREATHE',115,263);ctx.strokeStyle='#91b5ad22';ctx.lineWidth=1;for(let x=100;x<=1000;x+=45){ctx.beginPath();ctx.moveTo(x,400);ctx.lineTo(x,720);ctx.stroke();}for(let y=405;y<=720;y+=45){ctx.beginPath();ctx.moveTo(95,y);ctx.lineTo(1005,y);ctx.stroke();}for(const st of roomStations().filter(st=>st.id!=='room-exit')){ctx.fillStyle='#13282e';ctx.fillRect(st.x-80,290,160,62);if(green&&st.id==='lettuce'){drawLettucePlants(st);}else if(st.id==='ice-processor'){drawIceProcessor(st);}else{ctx.fillStyle=green?'#91bc78':'#71c8bd';ctx.fillRect(st.x-65,301,130,33);ctx.fillStyle='#162e32';ctx.font='12px Consolas, monospace';ctx.fillText(st.name,st.x-58,322);}}ctx.fillStyle='#172c3a';ctx.fillRect(460,680,180,43);ctx.fillStyle='#9cd3bb';ctx.fillRect(475,685,150,5);}
   function interactRoom(id){
+    if(state.location==='greenhouse'&&['lettuce','seed','irrigation'].includes(id)){greenhouseDialog();return;}
     if(id==='room-exit'){leaveRoom();return;}const o=state.operations,d=state.survival.day;
     if(id==='ice-processor'){
       const full=state.survival.water>=100,empty=o.ice===0;
@@ -57,12 +68,41 @@
     }
     if(state.location==='habitat'){const value=id==='food'?state.survival.food:id==='water'?state.survival.water:id==='oxygen'?o.oxygenReserve:state.power;showDialog('NOVA HABITAT - SYSTEM CHECK','<h1 id="dialog-title">'+id.toUpperCase()+' STATUS</h1><div class="dialog-stat">'+Math.round(value)+(id==='oxygen'?' oxygen units':'%')+'</div><p class="dialog-body">Ship power comes from the solar array. Clean panels generate more power. Meals restore astronaut energy. Collect oxygen canisters in the greenhouse and install them at ship life support.</p>'+actionButton(o.checks[id]===d?'Reading recorded':'Check and record '+id));$('dialog-action').onclick=()=>{C.performOperation(state,id);save();updateHud();closeDialog();};return;}
     if(id==='oxygen-canister'){showDialog('GREENHOUSE - OXYGEN COLLECTION','<h1 id="dialog-title">Bottle a little breathing room.</h1><p class="dialog-body">One canister per Sol. Carry up to three. Each adds 80 oxygen units when installed at ship life support.</p><div class="dialog-stat">Carried: '+o.canisters+' / 3</div>'+actionButton(o.oxygenCollectedDay===d?'Collected today':'Collect oxygen canister'));$('dialog-action').onclick=()=>{C.performOperation(state,'collect-oxygen');save();updateHud();closeDialog();};return;}
-    if(id==='irrigation'&&workDialog('greenhouse'))return;
-    if((id==='lettuce'||id==='seed')&&d<7){showDialog('GREENHOUSE - GROWING','<h1 id="dialog-title">The first crop is growing.</h1><p class="dialog-body">Red romaine will be ready on Day 7. Oxygen collection is available now.</p>'+actionButton('Let it grow'));$('dialog-action').onclick=closeDialog;return;}
-    const harvested=o.harvestDay===d,planted=o.plantDay===d;showDialog('GREENHOUSE - GROWING CYCLE','<h1 id="dialog-title">'+(id==='lettuce'?'Red romaine lettuce':id==='seed'?'Plant a new beginning':'Water for new life')+'</h1><p class="dialog-body">'+(id==='lettuce'?'Harvest mature lettuce to add 25% food and save seeds.':id==='seed'?'Harvest the tray first, then sow fresh seeds. Seeds available: '+o.seeds+'.':'The hydroponic loop feeds the growing trays.')+'</p>'+actionButton(id==='lettuce'?(harvested?'Harvest already stored':'Harvest red romaine'):id==='seed'?(planted?'Seeds already planted':!harvested?'Harvest the tray first':'Plant new seeds'):'Check irrigation'));$('dialog-action').onclick=()=>{if(id==='lettuce')C.performOperation(state,'harvest');if(id==='seed')C.performOperation(state,'plant');if(id==='irrigation')C.complete(state,'greenhouse');save();updateHud();closeDialog();};
+  }
+  function lettuceArt(tray){
+    const size=tray.harvested?0:tray.age<3?1:tray.age<10?3:tray.age<24?6:tray.age<35?9:12;
+    const leaf=state.greenhouse.health<40?'#b9a267':'#aa6479';
+    return `<svg class="lettuce-art" viewBox="0 0 64 52" aria-hidden="true"><path fill="#6c5142" d="M4 38h56v12H4z"/><path fill="#273e36" d="M8 38h48v5H8z"/>${size?`<path fill="#73a66b" d="M29 ${38-size*2}h6v${size*2}h-6z"/><path fill="${leaf}" d="M${29-size} ${38-size*2}h${size}v${size*2}H${29-size}zM35 ${38-size*2}h${size}v${size*2}H35z"/><path fill="#c78b93" d="M29 ${38-size*3}h6v${size*2}h-6z"/>`:''}</svg>`;
+  }
+  function greenhouseDialog(topic=0){
+    if(!['ship','greenhouse'].includes(state.location)){
+      showDialog('ORBI / GARDEN LINK','<h1 id="dialog-title">Check the garden from shelter.</h1><p class="dialog-body">Enter the greenhouse to see the plants, or use ORBI’s remote care controls aboard the spaceship.</p>'+actionButton('Back to exploring'));
+      $('dialog-action').onclick=closeDialog;return;
+    }
+    const G=C.Greenhouse,g=state.greenhouse,remote=state.location==='ship',light=G.light(state),planned=state.powerPlan.day===state.survival.day;
+    const lesson=G.lessons[topic],job=C.dayGoals(state).find(v=>v.station==='greenhouse'&&v.kind==='work'&&!v.done);
+    showDialog(`DAY ${state.survival.day} / ${remote?'ORBI REMOTE GARDEN':'NOVA GREENHOUSE'}`,`<div class="garden"><h1 id="dialog-title">A little garden. A long way home.</h1><p class="dialog-body">Three red romaine trays were already growing before you woke up. Keep water, nutrients and grow lights balanced. Each night advances growth by up to one growing day.</p>
+      <div class="garden-meters">${[['Water',g.water],['Nutrients',g.nutrients],['Plant health',g.health],['Light',light]].map(([label,value])=>`<label>${label}<strong>${Math.round(value)}%</strong><meter min="0" max="100" low="30" optimum="80" value="${value}">${Math.round(value)}%</meter></label>`).join('')}</div>
+      <p class="garden-status" role="status">${!planned?'Today’s lights are not powered yet. Confirm your Sol power plan.':light<40?'Light is low. Growth slows, and plant health will decline tonight.':light<60?'Lights are dim. Growth is slower today.':'The grow lights have good power today.'} ${g.water<30?'Top up the water loop. ':''}${g.nutrients<25?'Add a nutrient dose. ':''}${C.isStormDay(state.survival.day)?'Storm shelter: use these remote controls; leave solar cleaning for a safe day.':'Clean solar panels improve the next Sol’s recharge.'}</p>
+      <div class="garden-trays">${g.trays.map((t,i)=>`<section>${lettuceArt(t)}<h2>Tray ${i+1}</h2><strong>${G.stage(t)}</strong><small>${t.harvested?'Ready for new seeds':`${t.age.toFixed(1)} / 35 effective growing days`}</small><button data-garden-tray="${i}" data-garden-action="${t.harvested?'plant':'harvest'}" ${remote||(!t.harvested&&!G.ready(g,t))||(t.harvested&&!state.operations.seeds)?'disabled':''}>${t.harvested?'Sow 1 stored seed':'Harvest lettuce'}</button></section>`).join('')}</div>
+      <p class="garden-note">Our simplified romaine crop needs 35 effective growing days. Real timing varies by variety and conditions. Fresh seeds will not become a full crop during your 15-day stay. ${remote?'Harvesting and sowing require a greenhouse visit.':''}</p>
+      <div class="garden-actions"><button id="garden-inspect">${g.inspectedDay===state.survival.day?'Health recorded today':'Inspect plant health'}</button><button id="garden-water" ${g.water>60||state.survival.water<5?'disabled':''}>Water loop (+40%, costs 5 water stock)</button><button id="garden-nutrients" ${g.nutrients>60||!g.packets?'disabled':''}>Nutrient dose (+40%, ${g.packets} left)</button><button id="garden-power">Open solar power plan</button>${job&&!remote?`<button id="garden-maintenance">${job.label}</button>`:''}</div>
+      <p class="garden-note">Top-ups unlock at 60% or below. The loop uses 12 water points and 8 nutrient points per night. Health changes at night; good care helps it recover. Food stock: ${Math.round(state.survival.food)}% · Water stock: ${Math.round(state.survival.water)}% · Seeds: ${state.operations.seeds}</p>
+      ${g.report?`<p class="garden-note">Last night: ${Math.round(g.report.light)}% light · +${g.report.growth.toFixed(2)} growing days · health ${g.report.healthChange>=0?'+':''}${g.report.healthChange}%.</p>`:''}
+      <aside class="garden-lesson"><span>ORBI / ${lesson[0]}</span><p>${lesson[1]}</p><div>${G.lessons.map(([label],i)=>`<button data-garden-topic="${i}" aria-pressed="${i===topic}">${label}</button>`).join('')}</div></aside>
+      <p class="garden-note">Inspired by the <a href="https://www.asc-csa.gc.ca/eng/youth-educators/toolkits/food-production/" target="_blank" rel="noopener noreferrer">Canadian Space Agency’s food-production toolkit</a> and <a href="https://www.asc-csa.gc.ca/eng/youth-educators/activities/fitness-and-nutrition/interplanetary-farming.asp" target="_blank" rel="noopener noreferrer">Interplanetary Farming</a>. This Mars mission is a simplified game simulation.</p>${actionButton(remote?'Back to the cabin':'Back to the greenhouse')}</div>`);
+    const refresh=()=>{save();updateHud();greenhouseDialog(topic);};
+    $('garden-inspect').onclick=()=>{G.care(state,'inspect');refresh();};
+    $('garden-water').onclick=()=>{G.care(state,'water');C.flagLowSupplies(state);refresh();};
+    $('garden-nutrients').onclick=()=>{G.care(state,'nutrients');refresh();};
+    $('garden-power').onclick=()=>{if(remote)openPowerPlan();else{closeDialog();toast('ORBI: Return to the ship to rebalance the shared solar power plan.');}};
+    if($('garden-maintenance'))$('garden-maintenance').onclick=()=>{C.performOperation(state,job.id);refresh();};
+    dialog.querySelectorAll('[data-garden-tray]').forEach(b=>b.onclick=()=>{G.care(state,b.dataset.gardenAction,Number(b.dataset.gardenTray));refresh();});
+    dialog.querySelectorAll('[data-garden-topic]').forEach(b=>b.onclick=()=>greenhouseDialog(Number(b.dataset.gardenTopic)));
+    $('dialog-action').onclick=closeDialog;
   }
   function workDialog(station){const job=C.dayGoals(state).find(g=>g.station===station&&g.kind==='work'&&!g.done);if(insideShip()&&C.nextPreparation(state))return false;if(!job)return false;showDialog('DAY '+state.survival.day+' - MAINTENANCE','<h1 id="dialog-title">'+job.label+'</h1><p class="dialog-body">Check the station, record its readings, and complete the scheduled maintenance.</p>'+actionButton(job.label));$('dialog-action').onclick=()=>{C.performOperation(state,job.id);save();updateHud();closeDialog();toast('Completed: '+job.label);};return true;}
-  const resultArt=success=>`<img class="result-art" src="assets/survival/${success?'celebrating':'fallen'}-astronaut.svg" alt="${success?'A celebrating astronaut with arms raised':'A fallen astronaut with a little ghost above her'}">`;
+  const resultArt=success=>`<img class="result-art${success?' result-art-success':''}" src="assets/survival/${success?'celebrating':'fallen'}-astronaut.svg" alt="${success?'A celebrating astronaut with arms raised':'A fallen astronaut with a little ghost above her'}">`;
   function showDeath(){
     const reasons={hunger:['You died of hunger.','Your astronaut energy reached zero. Eat at the ship galley regularly; collecting food stock alone does not feed you.'],oxygen:['Your oxygen ran out.','Your suit oxygen reached zero on the surface. Standing uses less oxygen than walking; running uses the most. Refill at ship life support before your next EVA.'],energy:['You ran out of astronaut energy.','Your stamina reached zero. Walking uses energy and running uses it faster. Return to the ship galley for a meal before it runs out.'],storm:['The storm overwhelmed your suit.','You spent 12 continuous seconds on the surface during a radiation storm. Stay in the spaceship or enter a pressurized building for shelter.']};
     const [title,body]=reasons[state.death.cause];
@@ -490,6 +530,7 @@
   function showDialog(eyebrow, html) {
     keys.clear(); path = []; target = null; targetStation = null; moving = false;
     $('dialog-eyebrow').textContent = eyebrow; $('dialog-content').innerHTML = html;
+    dialog.classList.toggle('garden-dialog',html.includes('class="garden"'));
     $('close-dialog').hidden=!!state.death||state.ending.phase==='complete';
     if (!dialog.open) dialog.showModal();
     updateInteraction();
@@ -580,6 +621,10 @@
       });
       replies.append(button);
     });
+    if(state.orbi.phase==='complete'){
+      const garden=document.createElement('button');garden.textContent='Greenhouse: care & learn';
+      garden.onclick=()=>{closeOrbi();greenhouseDialog();};replies.append(garden);
+    }
     if(orbiDialog.open)replies.firstElementChild?.focus({preventScroll:true});
   }
   function openOrbi(){
@@ -638,7 +683,7 @@
       else{closeDialog();if(state.orbi.phase==='complete')walkToShipStation('galley');}
     };
   }
-  function openPowerPlan(){window.NOVAPowerUI(state,showDialog,()=>{save();updateHud();closeDialog();});}
+  function openPowerPlan(){window.NOVAPowerUI(state,showDialog,()=>{save();updateHud();closeDialog();},()=>greenhouseDialog());}
   $('power-planner').onclick=()=>{if(!state.death)openPowerPlan();};
   function airlockDialog(){
     if(state.powerPlan.day!==state.survival.day){openPowerPlan();return;}
@@ -707,6 +752,10 @@
     const id = station.id;
     if(insideRoom()){interactRoom(id);return;}
     if(insideShip()){interactShip(station);return;}
+    if(id==='solar'&&C.isStormDay(state.survival.day)){
+      showDialog('SOLAR ARRAY / STORM SHELTER','<h1 id="dialog-title">Leave the dust for a safer day.</h1><p class="dialog-body">Return to shelter. ORBI can care for the greenhouse remotely. Clean panels after the storm to improve the next Sol’s power for grow lights.</p>'+actionButton('Back to the outpost'));
+      $('dialog-action').onclick=closeDialog;return;
+    }
     if(id==='habitat'||id==='greenhouse'){enterRoom(id);return;}
     if(id==='crystals'){
       const o=state.operations,claimed=o.iceCollectedDay===state.survival.day,full=o.ice>=6;
