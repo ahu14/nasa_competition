@@ -49,7 +49,7 @@
         <div><span>Mission log / pause</span><span><kbd>M</kbd><em>/</em><kbd>Esc</kbd></span></div>
       </div>
       <h3 class="menu-section-label">YOUR MISSION</h3><ol class="menu-mission-list">${missions}</ol>
-      <p class="menu-tip">Day 1: eat, drink, check the weather, and match the EMU components with ORBI before exploring for supplies. Day 2: stay inside, review real NASA observations, and practise solar-storm decisions. The Mars storm effects are simulated. Sleep in the ship to advance the day. Your lessons, supplies, and story save on this device. Replay story starts Day 1 again.</p>
+      <p class="menu-tip">Day 1 is for exploring and finding food and water storage. Prepare each morning: eat, drink, and check the weather. Follow the gold marker or open the day journal to choose a destination. Return through the rocket, then sleep in the ship’s pod to begin the next day. Your day, supplies, and story save on this device. Use Replay story to start Day 1 again.</p>
       <button class="menu-dialog-action" id="guide-done">Ready for launch <span>→</span></button>`);
     $('guide-done').addEventListener('click', () => dialog.close());
   });

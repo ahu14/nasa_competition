@@ -26,8 +26,8 @@ test('Day 2 stays indoors before and after the weather check and the storm drill
   C.reviewStormRecords(s);
   for(const question of C.stormDecisions){C.chooseStormDecision(s,question.choices.find(c=>c.correct).id);assert.equal(C.advanceStormDecision(s),true);}
   assert.equal(C.stormComplete(s),true);assert.equal(C.canExitShip(s),false);assert.equal(C.exitShip(s),false);assert.equal(C.restStatus(s).allowed,true);
-  assert.equal(C.startNextDay(s),true);assert.equal(s.survival.day,3);assert.equal(C.dayGoals(s)[0].station,'solar');assert.equal(s.orbi.nameKnown,true);assert.equal(s.preparation.weatherChecked,false);
-  prep(s);assert.equal(C.canExitShip(s),true);
+  assert.equal(C.startNextDay(s),true);assert.equal(s.survival.day,3);assert.equal(C.dayGoals(s)[0].station,'ship-support');assert.equal(s.orbi.nameKnown,true);assert.equal(s.preparation.weatherChecked,false);
+  for(const day of [3,4]){prep(s);assert.equal(C.canExitShip(s),false);for(const job of C.dayGoals(s)){const st=C.shipStations.find(st=>st.id===job.station);s.shipPlayer={x:st.ax,y:st.ay};assert.equal(C.performOperation(s,job.id),true);}assert.equal(C.startNextDay(s),true);}prep(s);assert.equal(s.survival.day,5);assert.equal(C.canExitShip(s),true);
 });
 
 test('unsafe decisions have scientific feedback and cannot advance until revised',()=>{

@@ -89,7 +89,7 @@
       ctx.fillStyle='#f1e4b9';ctx.fillRect(318,699,59,18);ctx.fillStyle='#8eaa98';ctx.fillRect(321,702,53,12);
       if(!preparation.ate){ctx.fillStyle='#b0bc6e';ctx.fillRect(325,704,19,8);ctx.fillStyle='#d79c5e';ctx.fillRect(347,704,22,8);ctx.fillStyle='#e3cc8c';ctx.fillRect(351,705,13,3);}
       ctx.fillStyle='#d7e4cf';ctx.fillRect(374,681,14,27);ctx.fillStyle=preparation.drank?'#91aca7':'#6fbeda';ctx.fillRect(377,688,8,16);ctx.fillStyle='#4d6b77';ctx.fillRect(378,678,6,4);
-      ctx.textAlign='left';ctx.font='bold 8px Consolas,monospace';ctx.fillStyle='#f2d193';ctx.fillText(`DAY ${weather.sol} · WEATHER`,826,640);ctx.font='7px Consolas,monospace';ctx.fillStyle='#c2dccc';ctx.fillText(`${weather.temperature} C · SIMULATED`,826,655);ctx.fillStyle=weather.storm?'#f0a382':preparation.weatherChecked?'#a4d6ad':'#d3b687';ctx.fillText(weather.storm?'STORM DRILL · NO EVA':preparation.weatherChecked?'PREFLIGHT CHECKED':'CHECK BEFORE EXIT',826,669);
+      ctx.textAlign='left';ctx.font='bold 8px Consolas,monospace';ctx.fillStyle='#f2d193';ctx.fillText(`DAY ${weather.sol} · WEATHER`,826,640);ctx.font='7px Consolas,monospace';ctx.fillStyle='#c2dccc';ctx.fillText(`${weather.temperature} C · LOCAL SENSOR`,826,655);ctx.fillStyle=preparation.weatherChecked?'#a4d6ad':'#d3b687';ctx.fillText(preparation.weatherChecked?'PREFLIGHT CHECKED':'CHECK BEFORE EXIT',826,669);
     }
     draw(ctx,width,height,dpr,time,reducedMotion) {
       const scale=Math.max(width/1100,height/800),x=550-width/scale/2,y=535-height/scale*.58;

@@ -32,11 +32,30 @@
   const number = n => String(Math.floor(n)).padStart(2, '0');
   const missionCount = () => C.tasks.filter(t => state.tasks[t.id]).length;
   const currentTask = () => C.activeObjective(state);
+  const insideRoom=()=>['habitat','greenhouse'].includes(state.location);
+  const indoors=()=>insideShip()||insideRoom();
   const insideShip = () => state.introComplete && state.location === 'ship';
-  const activePlayer = () => insideShip() ? state.shipPlayer : state.player;
-  const activeStations = () => insideShip() ? C.shipStations : C.stations;
-  const cameraForScene = () => insideShip() ? C.shipCameraFor(state.shipPlayer,view.w,view.h,zoom) : C.cameraFor(state.player,view.w,view.h,zoom);
-  const isBlocked = () => paused || dialog.open || orbiDialog.open || trainer?.isOpen() || hidden || !ready || !state.introComplete;
+  const activePlayer = () => insideRoom()?state.interiorPlayer:insideShip() ? state.shipPlayer : state.player;
+  const activeStations = () => insideRoom()?roomStations():insideShip() ? C.shipStations : C.stations;
+  const cameraForScene = () => indoors() ? C.shipCameraFor(activePlayer(),view.w,view.h,zoom) : C.cameraFor(state.player,view.w,view.h,zoom);
+  const isBlocked = () => paused || dialog.open || orbiDialog.open || trainer?.isOpen() || ['zoom','complete'].includes(state.ending.phase) || hidden || !ready || !state.introComplete;
+
+  function roomStations(){const items=state.location==='habitat'?[['oxygen','OXYGEN'],['food','FOOD RESERVES'],['water','WATER TANK'],['power','POWER & SYSTEMS']]:[['lettuce','RED ROMAINE LETTUCE'],['seed','NEW SEEDS'],['irrigation','IRRIGATION'],['oxygen-canister','OXYGEN CANISTERS']];return items.map(([id,name],i)=>({id,name,x:200+i*220,y:410,ax:200+i*220,ay:445,radius:95,labelX:200+i*220,labelY:365})).concat({id:'room-exit',name:'AIRLOCK - EXIT',x:550,y:690,ax:550,ay:665,radius:85,labelX:550,labelY:735});}
+  function roomWalkable(x,y){return Number.isFinite(x)&&Number.isFinite(y)&&x>=100&&x<=1000&&y>=405&&y<=710;}
+  function enterRoom(id){state.location=id;state.interiorPlayer={x:550,y:660};resetRoom();toast(id==='habitat'?'NOVA habitat. Walk to each console to check supplies and systems.':'Greenhouse. Collect oxygen, harvest mature lettuce, then plant new seeds.');}
+  function leaveRoom(){const st=C.stations.find(s=>s.id===state.location);state.location='surface';state.player={x:st.ax,y:st.ay};resetRoom();}
+  function resetRoom(){if(dialog.open)closeDialog();keys.clear();path=[];target=null;targetStation=null;footsteps.length=0;activeStation=null;hoverStation=null;syncIntro();resize();updateHud();updateInteraction();render();save();}
+  function drawRoom(){const green=state.location==='greenhouse';ctx.fillStyle='#0c1721';ctx.fillRect(0,0,1100,840);ctx.fillStyle=green?'#324b42':'#354955';ctx.fillRect(75,175,950,555);ctx.fillStyle=green?'#182f29':'#172b3b';ctx.fillRect(95,195,910,205);ctx.fillStyle='#aec5b6';ctx.font='22px Consolas, monospace';ctx.fillText(green?'NOVA / BOTANICAL DOME':'NOVA / HABITAT',115,235);ctx.font='13px Consolas, monospace';ctx.fillText('DAY '+state.survival.day+' - PRESSURIZED / SAFE TO BREATHE',115,263);ctx.strokeStyle='#91b5ad22';ctx.lineWidth=1;for(let x=100;x<=1000;x+=45){ctx.beginPath();ctx.moveTo(x,400);ctx.lineTo(x,720);ctx.stroke();}for(let y=405;y<=720;y+=45){ctx.beginPath();ctx.moveTo(95,y);ctx.lineTo(1005,y);ctx.stroke();}for(const st of roomStations().filter(st=>st.id!=='room-exit')){ctx.fillStyle='#13282e';ctx.fillRect(st.x-80,290,160,62);if(green&&st.id==='lettuce'){for(let i=0;i<5;i++){ctx.fillStyle=state.operations.harvestDay===state.survival.day?'#705743':'#9a6470';ctx.fillRect(st.x-65+i*28,310,18,24);ctx.fillStyle='#7fac73';ctx.fillRect(st.x-62+i*28,304,12,12);}}else{ctx.fillStyle=green?'#91bc78':'#71c8bd';ctx.fillRect(st.x-65,301,130,33);ctx.fillStyle='#162e32';ctx.font='12px Consolas, monospace';ctx.fillText(st.name,st.x-58,322);}}ctx.fillStyle='#172c3a';ctx.fillRect(460,680,180,43);ctx.fillStyle='#9cd3bb';ctx.fillRect(475,685,150,5);}
+  function interactRoom(id){
+    if(id==='room-exit'){leaveRoom();return;}const o=state.operations,d=state.survival.day;
+    if(state.location==='habitat'){const value=id==='food'?state.survival.food:id==='water'?state.survival.water:id==='oxygen'?o.oxygenReserve:state.energy;showDialog('NOVA HABITAT - SYSTEM CHECK','<h1 id="dialog-title">'+id.toUpperCase()+' STATUS</h1><div class="dialog-stat">'+Math.round(value)+'%</div><p class="dialog-body">Record the daily reading. Food and water can be restocked at the depot. Energy cannot recharge. Collect oxygen canisters in the greenhouse and install them at ship life support.</p>'+actionButton(o.checks[id]===d?'Reading recorded':'Check and record '+id));$('dialog-action').onclick=()=>{C.performOperation(state,id);save();updateHud();closeDialog();};return;}
+    if(id==='oxygen-canister'){showDialog('GREENHOUSE - OXYGEN COLLECTION','<h1 id="dialog-title">Bottle a little breathing room.</h1><p class="dialog-body">One canister per clear day. Carry up to three. Each adds 80 oxygen units when installed at ship life support.</p><div class="dialog-stat">Carried: '+o.canisters+' / 3</div>'+actionButton(o.oxygenCollectedDay===d?'Collected today':'Collect oxygen canister'));$('dialog-action').onclick=()=>{C.performOperation(state,'collect-oxygen');save();updateHud();closeDialog();};return;}
+    if(id==='irrigation'&&workDialog('greenhouse'))return;
+    if((id==='lettuce'||id==='seed')&&d<7){showDialog('GREENHOUSE - GROWING','<h1 id="dialog-title">The first crop is growing.</h1><p class="dialog-body">Red romaine will be ready on Day 7. Oxygen collection is available now.</p>'+actionButton('Let it grow'));$('dialog-action').onclick=closeDialog;return;}
+    const harvested=o.harvestDay===d,planted=o.plantDay===d;showDialog('GREENHOUSE - GROWING CYCLE','<h1 id="dialog-title">'+(id==='lettuce'?'Red romaine lettuce':id==='seed'?'Plant a new beginning':'Water for new life')+'</h1><p class="dialog-body">'+(id==='lettuce'?'Harvest mature lettuce to add 25% food and save seeds.':id==='seed'?'Harvest the tray first, then sow fresh seeds. Seeds available: '+o.seeds+'.':'The hydroponic loop feeds the growing trays.')+'</p>'+actionButton(id==='lettuce'?(harvested?'Harvest already stored':'Harvest red romaine'):id==='seed'?(planted?'Seeds already planted':!harvested?'Harvest the tray first':'Plant new seeds'):'Check irrigation'));$('dialog-action').onclick=()=>{if(id==='lettuce')C.performOperation(state,'harvest');if(id==='seed')C.performOperation(state,'plant');if(id==='irrigation')C.complete(state,'greenhouse');save();updateHud();closeDialog();};
+  }
+  function workDialog(station){const job=C.dayGoals(state).find(g=>g.station===station&&g.kind==='work'&&!g.done);if(insideShip()&&C.nextPreparation(state))return false;if(!job)return false;showDialog('DAY '+state.survival.day+' - MAINTENANCE','<h1 id="dialog-title">'+job.label+'</h1><p class="dialog-body">Check the station, record its readings, and complete the scheduled maintenance.</p>'+actionButton(job.label));$('dialog-action').onclick=()=>{C.performOperation(state,job.id);save();updateHud();closeDialog();toast('Completed: '+job.label);};return true;}
+  function endingDialog(){keys.clear();path=[];target=null;targetStation=null;if(state.ending.phase==='complete'){showDialog('DAY 15 - 23:59','<div class="ending-screen"><span class="ending-signal">EARTH / NOVA - CONNECTED</span><h1 id="dialog-title">15 DAYS SURVIVED — SIGNAL RESTORED</h1><p>We never stopped looking.</p><small>Survival mission accomplished.</small></div>');return;}const [speaker,line]=C.endingLines[state.ending.step];showDialog('DAY 15 - 23:59 | SIGNAL RESTORED','<div class="ending-transmission"><span class="ending-signal">'+speaker+'</span><h1 id="dialog-title">'+line+'</h1></div>'+actionButton(state.ending.step===6?'Look beyond the terminal':'Continue transmission'));$('dialog-action').onclick=()=>{C.advanceEnding(state);save();if(state.ending.phase==='zoom'){dialog.close();state.shipPlayer={x:830,y:560};facing='up';updateCamera();$('toast').hidden=true;document.body.classList.add('ending-cinematic');}else endingDialog();};}
 
   function syncIntro() {
     document.body.classList.toggle('story-opening',!state.introComplete);
@@ -83,10 +102,10 @@
   }
   function updateHud() {
     document.body.classList.toggle('day-one',state.survival.day===1);
-    document.body.classList.toggle('day-two',state.survival.day===2);
+    document.body.classList.toggle('day-two',C.isStormDay(state.survival.day));
     $('prep-emu-item').hidden=state.survival.day!==1;
-    $('prep-heading').textContent=state.survival.day===2?'STORM DAY · STAY INSIDE':'BEFORE YOU HEAD OUT';
-    $('prep-description').textContent=state.survival.day===2?'Breakfast, weather, then ORBI’s shelter drill.':'Breakfast, weather, and your first EVA lesson.';
+    $('prep-heading').textContent=C.isStormDay(state.survival.day)?'STORM DAY · STAY INSIDE':'BEFORE YOU HEAD OUT';
+    $('prep-description').textContent=C.isStormDay(state.survival.day)?'Breakfast, weather, then ORBI’s shelter drill.':'Breakfast, weather, and your first EVA lesson.';
     $('survival-hud').hidden=!state.introComplete;
     $('day-value').textContent=`DAY ${state.survival.day}`;
     for(const stock of ['food','water']){
@@ -117,6 +136,7 @@
     $('step-label').textContent = task.label;
     $('mission-title').textContent = C.dayTitle(state);
     $('mission-description').textContent = `DAY ${state.survival.day} · ${state.survival.day===1?'Find supplies. Get to know the outpost.':'Breakfast. Weather. A little progress.'}`;
+    while($('progress-segments').children.length<goals.length)$('progress-segments').appendChild(document.createElement('i'));
     [...$('progress-segments').children].forEach((el, i) => {el.hidden=i>=goals.length;el.className=goals[i]?.done?'done':i===done?'current':'';});
   }
 
@@ -152,7 +172,7 @@
     world = new window.MarsWorld(map);
     intro = new window.WakeupScene(map,indoorCharacter,orbiImage);
     syncIntro();
-    ready = true; resize(); render(); updateInteraction(); $('loading').hidden = true;
+    ready = true; resize(); render(); updateInteraction();if(['transmission','complete'].includes(state.ending.phase))endingDialog();if(state.ending.phase==='zoom'){state.shipPlayer={x:830,y:560};document.body.classList.add('ending-cinematic');} $('loading').hidden = true;
     if(state.introComplete)dismissTimer = setTimeout(dismissWelcome, 18000);
   }).catch(error => {
     $('loading').querySelector('b').textContent = 'ASSET UNAVAILABLE';
@@ -201,7 +221,8 @@
     ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#111b29';ctx.fillRect(0,0,canvas.width,canvas.height);
     ctx.setTransform(scale, 0, 0, scale, -view.x * scale, -view.y * scale);
     ctx.imageSmoothingEnabled = false;
-    if(insideShip())intro.drawCabin(ctx,time,reducedMotion,state.earthSignal.phase,state.orbi.phase,state.preparation,C.weatherFor(state.survival.day));
+    if(insideRoom())drawRoom();
+    else if(insideShip())intro.drawCabin(ctx,time,reducedMotion,state.earthSignal.phase,state.orbi.phase,state.preparation,C.weatherFor(state.survival.day));
     else world.draw(ctx, { x: view.x, y: view.y, w: view.w / view.scale, h: view.h / view.scale });
     // Wind, footprints, and destination markers are real-time layers over the map.
     for (const foot of footsteps) {
@@ -216,7 +237,7 @@
     // Each walking view has four original frames; idle keeps the last facing.
     const p = activePlayer(), frame = moving ? Math.floor(walkTime * 8) % 4 : -1;
     ctx.fillStyle = '#733d3c65'; ctx.beginPath(); ctx.ellipse(p.x, p.y - 3, 33, 10, 0, 0, Math.PI * 2); ctx.fill();
-    (insideShip()?indoorCharacter:character).draw(ctx, facing, frame, p.x, p.y);
+    (indoors()?indoorCharacter:character).draw(ctx, facing, frame, p.x, p.y);
     if (!reducedMotion && !insideShip()) {
       for (const m of motes) { ctx.fillStyle = `rgba(255,222,165,${m.alpha})`; ctx.fillRect(Math.round(m.x), Math.round(m.y), m.size, m.size); }
     }
@@ -231,8 +252,8 @@
       toast('You’re far from home. Press B or tap the home button to return to base.'); return;
     }
     targetStation = station;
-    const dest = station ? { x: station.ax, y: station.ay } : C.nearestOpen(point.x, point.y,insideShip()?C.shipWalkable:C.walkable,insideShip()?C.SHIP.spawn:C.HOME);
-    path = C.findPath(activePlayer(), dest,insideShip()?'ship':'surface'); target = dest;
+    const dest = station ? { x: station.ax, y: station.ay } : insideRoom()?{x:C.clamp(point.x,100,1000),y:C.clamp(point.y,405,710)}:C.nearestOpen(point.x, point.y,insideRoom()?roomWalkable:insideShip()?C.shipWalkable:C.walkable,insideShip()?C.SHIP.spawn:C.HOME);
+    path = insideRoom()?[dest]:C.findPath(activePlayer(), dest,insideShip()?'ship':'surface'); target = dest;
     if (!path.length) { toast('That spot is out of reach. Try the open ground.'); targetStation = null; }
     canvas.focus({ preventScroll: true });
   }
@@ -269,7 +290,7 @@
   function updateInteraction() {
     if(!state.introComplete){$('interact-prompt').hidden=true;$('destination-beacon').hidden=true;return;}
     activeStation = nearestStation();
-    if(activeStation&&!insideShip()&&C.recordVisit(state,activeStation.id)){save();updateHud();}
+    if(activeStation&&!indoors()&&C.recordVisit(state,activeStation.id)){save();updateHud();}
     $('interact-prompt').hidden = !activeStation || isBlocked();
     if (activeStation) {
       $('interact-label').textContent = activeStation.name.toLowerCase().replace(/\b\w/g, x => x.toUpperCase());
@@ -280,7 +301,7 @@
     $('base-distance').textContent = insideShip()?'NOVA · CABIN':`BASE · ${Math.round(Math.hypot(state.player.x - C.HOME.x, state.player.y - C.HOME.y) / 10)} m`;
     const next = C.stations.find(s => s.id === currentTask()?.id);
     const offscreen = next && (next.ax < view.x+60 || next.ax > view.x+view.w/view.scale-60 || next.ay < view.y+100 || next.ay > view.y+view.h/view.scale-60);
-    $('destination-beacon').hidden = insideShip() || !offscreen || isBlocked();
+    $('destination-beacon').hidden = indoors() || !offscreen || isBlocked();
     if (next) {
       $('destination-name').textContent = next.name;
       $('destination-distance').textContent = `${Math.round(Math.hypot(next.ax-state.player.x,next.ay-state.player.y)/10)} m`;
@@ -289,6 +310,7 @@
     drawMinimap();
   }
   function drawMinimap() {
+    if(insideRoom()){const w=minimap.width,h=minimap.height;mini.fillStyle='#182e30';mini.fillRect(0,0,w,h);for(const st of roomStations()){mini.fillStyle='#9fcca1';mini.fillRect(st.ax/1100*w-2,st.ay/840*h-2,4,4);}mini.fillStyle='#ffe3a9';mini.fillRect(state.interiorPlayer.x/1100*w-2,state.interiorPlayer.y/840*h-2,4,4);return;}
     if(insideShip()){
       const w=minimap.width,h=minimap.height,s=Math.min((w-12)/C.SHIP.width,(h-12)/C.SHIP.height),ox=(w-C.SHIP.width*s)/2,oy=(h-C.SHIP.height*s)/2;
       mini.fillStyle='#1c2d3b';mini.fillRect(0,0,w,h);mini.strokeStyle='#7d9d9c';mini.strokeRect(ox,oy,C.SHIP.width*s,C.SHIP.height*s);
@@ -334,6 +356,7 @@
   }
   function returnToBase() {
     if (isBlocked()) return;
+    if(insideRoom()){leaveRoom();return;}
     if(insideShip()){const airlock=C.shipStations.find(s=>s.id==='airlock');setDestination({x:airlock.ax,y:airlock.ay},airlock);return;}
     keys.clear(); path = []; target = null; targetStation = null;
     state.player = { ...C.HOME }; facing = 'down';
@@ -356,7 +379,7 @@
   });
   canvas.addEventListener('wheel', event => { event.preventDefault(); setZoom(zoom + (event.deltaY < 0 ? .08 : -.08)); }, { passive: false });
   function move(dx, dy) {
-    const p = activePlayer(),isOpen=insideShip()?C.shipWalkable:C.walkable;
+    const p = activePlayer(),isOpen=insideRoom()?roomWalkable:insideShip()?C.shipWalkable:C.walkable;
     // Small substeps prevent tunneling through obstacles during a slow frame.
     const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 4));
     for (let i = 0; i < steps; i++) {
@@ -387,6 +410,9 @@
         toast('The nearby TV lights up. ORBI has a message for you — look for the !');
       }
     }
+    if(ready&&!paused&&!hidden){const event=C.tickEnding(state,dt,state.introComplete&&state.location!=='ship'&&!C.nextPreparation(state)&&!dialog.open&&(moving||!!activeStation));
+      if(event==='recall'){keys.clear();path=[];target=null;targetStation=null;save();updateHud();showDialog('DAY 15 - 23:59 | ORBI','<h1 id="dialog-title">Return to the spaceship.</h1><p class="dialog-body">A signal just appeared on the deep-space channel. Stop the survey and return to the communications terminal now.</p>'+actionButton('Return to the spaceship'));$('dialog-action').onclick=()=>{closeDialog();if(insideRoom())leaveRoom();toast('ORBI: Return to the spaceship and check Earth communications.');};}
+      if(state.ending.phase==='zoom'){const t=C.clamp(state.ending.elapsed/7,0,1);zoom=1-.35*t*t*(3-2*t);view.scale=C.shipCameraFor(state.shipPlayer,view.w,view.h,zoom).scale;updateCamera(dt);}if(event==='complete'){save();endingDialog();}}
     if (isBlocked()) { moving = false; return; }
     state.seconds += dt;
     const p=activePlayer(),previousX = p.x, previousY = p.y;
@@ -396,7 +422,7 @@
     if (keys.has('a') || keys.has('arrowleft')) dx--;
     if (keys.has('d') || keys.has('arrowright')) dx++;
     if (dx || dy) { path = []; target = null; targetStation = null; dismissWelcome(); }
-    const speed = keys.has('shift') ? 285 : 172;
+    const speed = state.energy<=0?125:keys.has('shift') ? 285 : 172;
     if (!dx && !dy && path.length) {
       const node = path[0], dist = Math.hypot(node.x - p.x, node.y - p.y);
       if (dist < speed * dt + 1) { move(node.x - p.x, node.y - p.y); path.shift(); }
@@ -411,14 +437,14 @@
     if (moving) {
       walkTime += dt * speed / 172;
       if (Math.floor(walkTime * 5) !== Math.floor((walkTime - dt) * 5)) footsteps.push({ x: p.x + (Math.floor(walkTime * 5) % 2 ? 7 : -7), y: p.y - 3, life: 1 });
-      if(!insideShip())state.energy = Math.max(0, state.energy - dt * .024);
+      if(!indoors())state.energy = Math.max(0, state.energy - dt * .045);
     }
-    if(!insideShip())state.oxygen = Math.max(0, state.oxygen - dt * (moving ? .035 : .014));
-    if (state.oxygen === 0 && !insideShip()) {
+    if(!indoors())state.oxygen = Math.max(0, state.oxygen - dt * (moving ? .075 : .03));
+    if (state.oxygen === 0 && !indoors()) {
       const habitat = C.stations.find(s=>s.id==='habitat');
-      state.player = { x: habitat.ax, y: habitat.ay }; state.oxygen = 65; path = []; target = null; targetStation = null;
+      C.enterShip(state);syncIntro();resize(); path = []; target = null; targetStation = null;
       updateCamera();
-      toast('Suit reserve activated. You’re safe at the habitat.'); save();
+      toast('Emergency return to the ship. Refill oxygen at life support; no oxygen was added.'); save();
     }
     for (let i = footsteps.length - 1; i >= 0; i--) { footsteps[i].life -= dt / 12; if (footsteps[i].life <= 0) footsteps.splice(i, 1); }
     for (const m of motes) {
@@ -444,7 +470,7 @@
     updateInteraction();
   }
   function closeDialog() {
-    if (busy) return;
+    if (busy||['transmission','zoom','complete'].includes(state.ending.phase)) return;
     dialog.close(); paused = false; keys.clear(); updateInteraction();
     canvas.focus({ preventScroll: true }); save();
   }
@@ -488,6 +514,8 @@
     toast(entering?'Back aboard NOVA. The Earth screen is on the right.':'You’re outside. Return to the landing pad whenever you want to enter the ship again.');
   }
   function earthDialog() {
+    if(state.ending.phase==='recalled'){C.beginEnding(state);endingDialog();return;}
+    if(['transmission','complete'].includes(state.ending.phase)){endingDialog();return;}
     if(state.earthSignal.phase==='incoming'){C.contactEarth(state);save();updateHud();chirp(660,.18);}
     const e=state.earthSignal,linked=e.phase==='connected',faulty=e.phase==='error'||e.phase==='lost';
     const signal={waiting:'CHANNEL STANDBY',connected:'CONNECTION ESTABLISHED',error:'SYSTEM ERROR',lost:'SIGNAL LOST'}[e.phase];
@@ -516,7 +544,7 @@
       const button=document.createElement('button');button.textContent=text;
       button.addEventListener('click',()=>{
         if(state.orbi.phase==='complete'){
-          if(state.preparation.weatherChecked&&state.survival.day===2){closeOrbi();openTraining('storm');return;}
+          if(state.preparation.weatherChecked&&C.isStormDay(state.survival.day)){closeOrbi();openTraining('storm');return;}
           if(state.preparation.weatherChecked&&state.survival.day===1&&!C.emuComplete(state)){closeOrbi();openTraining('emu');return;}
           if(state.survival.warningPending)C.acknowledgeSupplies(state);closeOrbi();return;
         }
@@ -559,7 +587,7 @@
       $('dialog-action').onclick=closeDialog;return;
     }
     const p=state.preparation,both=p.ate&&p.drank;
-    showDialog('SPACESHIP · GALLEY',`<h1 id="dialog-title">A little fuel for you.</h1><p class="dialog-body">You’ve been asleep for a long time. Have a warm meal and some water before taking on the day.</p><div class="galley-tray"><svg viewBox="0 0 120 88" aria-hidden="true"><path fill="#bbbea3" d="M1 29h85v51H1z"/><path fill="#e7dfba" d="M7 35h73v37H7z"/><path fill="#8eaa62" d="M13 40h25v25H13z"/><path fill="#ca9b5e" d="M43 40h31v25H43z"/><path fill="#edd18b" d="M48 44h21v5H48z"/><path fill="#cce6d8" d="M93 18h22v58H93z"/><path fill="#72b6cc" d="M97 31h14v40H97z"/><path fill="#779398" d="M98 12h12v8H98z"/></svg><div><strong>Today’s breakfast</strong><small>${p.ate?'✓ Meal finished':'Warm vegetable ration · +15% energy'}</small><small>${p.drank?'✓ Water finished':'Fresh drinking water'}</small></div></div><div class="galley-actions"><button id="galley-eat" ${p.ate?'disabled':''}>${p.ate?'✓ Meal finished':'Eat breakfast'}</button><button id="galley-drink" ${p.drank?'disabled':''}>${p.drank?'✓ Hydrated':'Drink water'}</button></div><p class="dialog-body">${both?'Feeling better. Next, check today’s weather at the screen beside the airlock.':'Take a moment for both food and water.'}</p>${actionButton(both?'Go to the weather screen':'Back to the cabin')}`);
+    showDialog('SPACESHIP · GALLEY',`<h1 id="dialog-title">A little fuel for you.</h1><p class="dialog-body">You’ve been asleep for a long time. Have a warm meal and some water before taking on the day.</p><div class="galley-tray"><svg viewBox="0 0 120 88" aria-hidden="true"><path fill="#bbbea3" d="M1 29h85v51H1z"/><path fill="#e7dfba" d="M7 35h73v37H7z"/><path fill="#8eaa62" d="M13 40h25v25H13z"/><path fill="#ca9b5e" d="M43 40h31v25H43z"/><path fill="#edd18b" d="M48 44h21v5H48z"/><path fill="#cce6d8" d="M93 18h22v58H93z"/><path fill="#72b6cc" d="M97 31h14v40H97z"/><path fill="#779398" d="M98 12h12v8H98z"/></svg><div><strong>Today’s breakfast</strong><small>${p.ate?'✓ Meal finished':'Warm vegetable ration - daily meal'}</small><small>${p.drank?'✓ Water finished':'Fresh drinking water'}</small></div></div><div class="galley-actions"><button id="galley-eat" ${p.ate?'disabled':''}>${p.ate?'✓ Meal finished':'Eat breakfast'}</button><button id="galley-drink" ${p.drank?'disabled':''}>${p.drank?'✓ Hydrated':'Drink water'}</button></div><p class="dialog-body">${both?'Feeling better. Next, check today’s weather at the screen beside the airlock.':'Take a moment for both food and water.'}</p>${actionButton(both?'Go to the weather screen':'Back to the cabin')}`);
     $('galley-eat').disabled=p.ate||state.survival.food<10;
     $('galley-drink').disabled=p.drank||state.survival.water<15;
     $('galley-eat').onclick=()=>{C.eatMeal(state);save();updateHud();state.survival.warningPending?lowSupplyDialog():galleyDialog();};
@@ -569,11 +597,11 @@
   function weatherDialog(){
     const w=C.weatherFor(state.survival.day),p=state.preparation,canCheck=state.orbi.phase==='complete'&&p.ate&&p.drank;
     const dataset=trainer.donki.data;
-    showDialog('SPACESHIP · WEATHER & SPACE WEATHER',`<div class="weather-report"><div><span>SIMULATED MARS CONDITIONS</span><span>SOL ${number(w.sol)}</span></div><div class="weather-overview">${icon('sun')}<div><strong>${w.summary}</strong><small>${w.storm?'DAY 2 TRAINING LOCKDOWN · NO EVA':'GENERATED GAME WEATHER'}</small></div></div><div class="weather-metrics"><div><span>TEMPERATURE</span><strong>${w.temperature}°</strong><small>C</small></div><div><span>WIND</span><strong>${w.wind}</strong><small> km/h</small></div><div><span>VISIBILITY</span><strong>${w.visibility}</strong></div></div><p>${w.advice}</p></div><h1 id="dialog-title">${w.storm?'A day to stay inside.':'A look at the sky.'}</h1><p class="weather-source-note">NASA DONKI tracks solar activity, not Mars air temperature or wind. ${w.storm?`ORBI’s ${dataset.displayMode==='historical'?'historical':'dated'} NASA case includes real FLR, CME, SEP and notification records from ${dataset.range.startDate} to ${dataset.range.endDate}. The Mars arrival and airlock lockout are simulated.`:'These atmospheric values are simulated. After checking the weather, learn the EMU with ORBI before your first EVA.'}</p><p class="dialog-body">${canCheck?w.storm?'Review the warning, then report to ORBI for the indoor solar-storm mission.':'Review today’s conditions before the EMU lesson.':state.orbi.phase==='complete'?'Have breakfast and drink water before finishing the weather check.':'ORBI will help you plan your day.'}</p>${actionButton(canCheck?'Confirm weather check':state.orbi.phase==='complete'?'Go to the galley':'Back to the cabin')}`);
+    showDialog('SPACESHIP · WEATHER & SPACE WEATHER',`<div class="weather-report"><div><span>SIMULATED MARS CONDITIONS</span><span>SOL ${number(w.sol)}</span></div><div class="weather-overview">${icon('sun')}<div><strong>${w.summary}</strong><small>${w.storm?'STORM LOCKDOWN · NO EVA':'GENERATED GAME WEATHER'}</small></div></div><div class="weather-metrics"><div><span>TEMPERATURE</span><strong>${w.temperature}°</strong><small>C</small></div><div><span>WIND</span><strong>${w.wind}</strong><small> km/h</small></div><div><span>VISIBILITY</span><strong>${w.visibility}</strong></div></div><p>${w.advice}</p></div><h1 id="dialog-title">${w.storm?'A day to stay inside.':'A look at the sky.'}</h1><p class="weather-source-note">NASA DONKI tracks solar activity, not Mars air temperature or wind. ${w.storm?`ORBI’s ${dataset.displayMode==='historical'?'historical':'dated'} NASA case includes real FLR, CME, SEP and notification records from ${dataset.range.startDate} to ${dataset.range.endDate}. The Mars arrival and airlock lockout are simulated.`:'These atmospheric values are simulated. After checking the weather, learn the EMU with ORBI before your first EVA.'}</p><p class="dialog-body">${canCheck?w.storm?'Review the warning, then report to ORBI for the indoor solar-storm mission.':'Review today’s conditions before the EMU lesson.':state.orbi.phase==='complete'?'Have breakfast and drink water before finishing the weather check.':'ORBI will help you plan your day.'}</p>${actionButton(canCheck?'Confirm weather check':state.orbi.phase==='complete'?'Go to the galley':'Back to the cabin')}`);
     $('dialog-action').onclick=()=>{
       if(canCheck){
         C.checkWeather(state);save();closeDialog();updateHud();
-        if(state.survival.day===2){toast('Day 2 solar-storm drill. No EVA today. ORBI has your briefing.');openOrbi();}
+        if(C.isStormDay(state.survival.day)){toast('Radiation-storm lockdown. No EVA today. ORBI has your briefing.');openOrbi();}
         else if(state.survival.day===1&&!C.emuComplete(state)){
           showDialog('ORBI · BEFORE YOUR FIRST EVA',`<h1 id="dialog-title">First, learn your spacesuit.</h1><p class="dialog-body">The weather check is done. Now match the EMU components to their roles before opening the airlock.</p>${actionButton('Learn & assemble the EMU','start-emu')}<button class="dialog-secondary" id="emu-later">Back to the cabin</button>`);
           $('start-emu').onclick=()=>openTraining('emu');$('emu-later').onclick=closeDialog;
@@ -583,9 +611,9 @@
     };
   }
   function airlockDialog(){
-    if(state.survival.day===2){
+    if(C.isStormDay(state.survival.day)){
       const checked=state.preparation.weatherChecked;
-      showDialog('DAY 2 · AIRLOCK LOCKED',`<div class="dialog-icon">${icon('rocket')}</div><h1 id="dialog-title">No EVA during this storm.</h1><p class="dialog-body">${checked?'ORBI has set a shelter-only day. The simulated radiation alert keeps the airlock closed even after the training mission.':'Check today’s weather warning and report to ORBI. Day 2 is reserved for indoor storm training.'}</p><p class="weather-source-note">The Day 2 Mars arrival and lockout are simulated game effects. Real NASA observations are reviewed separately in ORBI’s briefing.</p><button class="dialog-action" disabled><span>Step outside · Storm lockdown</span></button><button class="dialog-secondary" id="storm-entry">${checked?'Open solar-storm training':'Go to the weather screen'}</button>`);
+      showDialog('STORM - AIRLOCK LOCKED',`<div class="dialog-icon">${icon('rocket')}</div><h1 id="dialog-title">No EVA during this storm.</h1><p class="dialog-body">${checked?'ORBI has set a shelter-only day. The simulated radiation alert keeps the airlock closed even after the training mission.':'Check today’s weather warning and report to ORBI. Storm days are reserved for shelter and indoor maintenance.'}</p><p class="weather-source-note">The Day 2 Mars arrival and lockout are simulated game effects. Real NASA observations are reviewed separately in ORBI’s briefing.</p><button class="dialog-action" disabled><span>Step outside · Storm lockdown</span></button><button class="dialog-secondary" id="storm-entry">${checked?'Open solar-storm training':'Go to the weather screen'}</button>`);
       $('storm-entry').onclick=()=>{closeDialog();checked?openTraining('storm'):walkToShipStation('weather');};return;
     }
     if(state.survival.day===1&&state.orbi.phase!=='complete'){
@@ -616,14 +644,17 @@
     $('sleep-back').onclick=closeDialog;
   }
   function interactShip(station) {
+    if(state.ending.phase==='recalled'&&station.id==='earth-uplink'){earthDialog();return;}
+    if(workDialog(station.id))return;
     if(station.id==='earth-uplink'){earthDialog();return;}
     if(station.id==='orbi'){openOrbi();return;}
     if(station.id==='galley'){galleyDialog();return;}
     if(station.id==='weather'){weatherDialog();return;}
     if(station.id==='airlock'){airlockDialog();return;}
     if(station.id==='ship-support'){
-      showDialog('SPACESHIP · LIFE SUPPORT',`<div class="dialog-icon">${icon('leaf')}</div><h1 id="dialog-title">A moment to breathe.</h1><p class="dialog-body">The ship’s backup life support is still working. Refill your oxygen and recharge your suit before heading back out.</p><div class="dialog-stat">${icon('bolt')}Oxygen and suit energy restored to 100%</div>${actionButton('Refill my suit')}`);
-      $('dialog-action').onclick=()=>{state.oxygen=100;state.energy=100;closeDialog();updateHud();toast('Suit replenished. You’re ready to head out.');};return;
+      const o=state.operations;
+      showDialog('SPACESHIP - LIFE SUPPORT','<h1 id="dialog-title">Oxygen transfer station.</h1><p class="dialog-body">Install greenhouse canisters in this machine, then transfer oxygen from its reservoir to your suit. Energy cannot recharge.</p><div class="dialog-stat">Oxygen reserve: '+Math.round(o.oxygenReserve)+' / 300<br>Carried canisters: '+o.canisters+'<br>Suit oxygen: '+Math.ceil(state.oxygen)+'% | Battery: '+Math.ceil(state.energy)+'%</div><button class="dialog-action" id="install-canister" '+(o.canisters?'':'disabled')+'>Install oxygen canister (+80 reserve)</button><button class="dialog-secondary" id="refill-suit" '+(o.oxygenReserve>0&&state.oxygen<100?'':'disabled')+'>Refill suit oxygen from reservoir</button>');
+      $('install-canister').onclick=()=>{C.performOperation(state,'install-oxygen');save();updateHud();interactShip(station);};$('refill-suit').onclick=()=>{C.performOperation(state,'refill-oxygen');save();updateHud();interactShip(station);};return;
     }
     sleepDialog();
   }
@@ -631,14 +662,19 @@
     if (!station || isBlocked()) return;
     dismissWelcome(); chirp(440, .05);
     const id = station.id;
+    if(insideRoom()){interactRoom(id);return;}
     if(insideShip()){interactShip(station);return;}
+    if(id==='habitat'||id==='greenhouse'){enterRoom(id);return;}
+    if(workDialog(id))return;
+    if(id==='solar'&&state.survival.day>=5){showDialog('SOLAR ARRAY - MAINTENANCE','<h1 id="dialog-title">Brush away the storm dust.</h1><p class="dialog-body">Clean each panel to restore outpost systems after the long storm. Battery reserves cannot recharge.</p>'+actionButton(state.operations.solarDay===state.survival.day?'Panels are clean':'Clean solar panels'));$('dialog-action').onclick=()=>{C.performOperation(state,'solar');save();updateHud();closeDialog();};return;}
+    if(id==='rover'&&state.survival.day>=5){showDialog('ROVER - DAILY SURVEY','<h1 id="dialog-title">A new set of discoveries.</h1><p class="dialog-body">Transfer the latest survey to the habitat archive.</p>'+actionButton(state.operations.roverDay===state.survival.day?'Data already archived':'Download rover data'));$('dialog-action').onclick=()=>{C.performOperation(state,'rover');save();updateHud();closeDialog();};return;}
     if(id==='storage'){
       const claimed=state.survival.storageClaimedDay===state.survival.day;
       showDialog('EXPLORATION · FOOD & WATER STORAGE',`<div class="dialog-icon">${icon('home')}</div><h1 id="dialog-title">Something to live on.</h1><p class="dialog-body">Sealed food crates. Fresh water tanks. The depot’s automated stores can prepare one supply load each day. You won’t have to face this planet on an empty stomach.</p><div class="supply-alert"><strong>FOOD ${state.survival.food}% · WATER ${state.survival.water}%</strong><p>${claimed?'Today’s supplies are loaded. Come back on the next day.':'Collect up to +70% food and +80% water. Reserves hold up to 100% each.'}</p></div>${actionButton(claimed?'Back to exploring':'Load food and water','storage-collect')}`);
       $('storage-collect').onclick=()=>{if(!claimed)C.collectSupplies(state);save();updateHud();closeDialog();toast('Food and water secured. Explore the outpost, then return to your sleep pod when the day is done.');};return;
     }
     if(id==='rocket'){
-      const canFinish=C.canComplete(state,'rocket')&&!state.tasks.rocket;
+      const canFinish=false;
       showDialog('LANDING PAD · NOVA SPACESHIP',`<div class="dialog-icon">${icon('rocket')}</div><h1 id="dialog-title">Back aboard?</h1><p class="dialog-body">Your spaceship’s airlock is open. Explore the cabin, top up your suit, or use the Earth communications screen.</p><div class="dialog-stat">${icon('home')}Earth: ${C.earthStatus(state).toLowerCase()} · Cabin accessible</div>${actionButton('Enter spaceship')}${canFinish?'<button class="dialog-secondary" id="finish-expedition"><span>Complete the expedition</span></button>':'<button class="dialog-secondary" id="stay-outside">Stay outside</button>'}`);
       $('dialog-action').onclick=()=>changeLocation(true);
       if(canFinish)$('finish-expedition').onclick=()=>perform('rocket',stationCopy.rocket.message,'finish-expedition');
@@ -671,6 +707,7 @@
   $('interact-prompt').addEventListener('click', () => interact());
 
   function showMissions() {
+    if(['transmission','zoom','complete'].includes(state.ending.phase))return;
     if (busy) return;
     dismissWelcome();
     const current=currentTask(),goals=C.dayGoals(state),done=goals.every(g=>g.done)&&current.id==='rocket';
@@ -679,16 +716,18 @@
     showDialog(`DAY ${state.survival.day} · MISSION LOG`,`<h1 id="dialog-title">${C.dayTitle(state)}</h1><p class="dialog-body">${state.survival.day===1?'Today is about finding your way around. Food and water are scarce. Find storage, visit other outpost locations, and return to the ship to rest.':'Prepare for the day, complete your fieldwork, and return to the sleep pod when you’re ready for tomorrow.'}</p><ul class="journal-list">${rows}</ul><p class="journal-meta">FOOD ${state.survival.food}% · WATER ${state.survival.water}% · ${missionCount()} / 5 OUTPOST SYSTEMS RESTORED</p>${places}${actionButton(done&&insideShip()?'Go to the sleep pod':'Show my next destination')}`);
     $('dialog-action').onclick=()=>{
       closeDialog();
-      const s=insideShip()?C.shipStations.find(s=>s.id===(C.nextPreparation(state)?.station||(done?'sleep-pod':state.survival.day===2?'orbi':'airlock'))):C.stations.find(s=>s.id===current.id);
+      if(insideRoom()){const goal=C.dayGoals(state).find(g=>!g.done);const id=goal?.station!==state.location?'room-exit':goal.id==='collect-oxygen'?'oxygen-canister':goal.id==='harvest'?'lettuce':goal.id==='plant'?'seed':goal.id==='irrigation-test'?'irrigation':goal.id.replace('check-','');const next=roomStations().find(st=>st.id===id);if(next)setDestination({x:next.ax,y:next.ay},next);return;}
+      const s=insideShip()?C.shipStations.find(s=>s.id===((state.ending.phase==='recalled'?'earth-uplink':C.nextPreparation(state)?.station)||(done?'sleep-pod':C.shipStations.some(st=>st.id===current.id)?current.id:'airlock'))):C.stations.find(s=>s.id===current.id);
       setDestination({x:s.ax,y:s.ay},s);
     };
     for(const button of dialog.querySelectorAll('[data-station]'))button.onclick=()=>{const s=C.stations.find(s=>s.id===button.dataset.station);closeDialog();setDestination({x:s.ax,y:s.ay},s);};
   }
   $('day-journal').addEventListener('click',showMissions);
   function showGuide() {
+    if(['transmission','zoom','complete'].includes(state.ending.phase))return;
     if (busy) return;
     showDialog('FIELD GUIDE · GETTING YOUR BEARINGS', `<div class="dialog-icon">${icon('book')}</div><h1 id="dialog-title">A small guide to a big planet.</h1>
-      <p class="dialog-body">${insideShip()?'Prepare with breakfast, water, and the weather screen. Day 1 also requires ORBI’s EMU matching lesson. Day 2 stays indoors for the solar-storm drill. Tap the checklist or ORBI’s TV for your next step.':'Explore the desert and follow the day’s objective marker. Return through the rocket’s airlock, then rest in the ship to begin the next day.'}</p>
+      <p class="dialog-body">${insideShip()?'Prepare with breakfast, water, and the weather screen. Day 1 also requires ORBI’s EMU matching lesson. Storm days stay indoors for the solar-storm drill. Tap the checklist or ORBI’s TV for your next step.':'Explore the desert and follow the day’s objective marker. Return through the rocket’s airlock, then rest in the ship to begin the next day.'}</p>
       <div class="guide-row"><span>Move your astronaut</span><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows</span></div>
       <div class="guide-row"><span>Walk to a destination</span><span>CLICK / TAP</span></div>
       <div class="guide-row"><span>Interact with a nearby place</span><span><kbd>E</kbd> / tap prompt</span></div>
@@ -700,6 +739,7 @@
     $('dialog-action').onclick = closeDialog;
   }
   function showPause() {
+    if(['transmission','zoom','complete'].includes(state.ending.phase))return;
     if (busy) return;
     if (dialog.open) { closeDialog(); return; }
     paused = true;
@@ -736,6 +776,7 @@
   });
   document.addEventListener('fullscreenchange', resize);
   window.addEventListener('keydown', event => {
+    if(['zoom','complete'].includes(state.ending.phase))return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     const key = event.key.toLowerCase();
     if(trainer?.isOpen())return;

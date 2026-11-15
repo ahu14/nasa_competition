@@ -8,9 +8,9 @@ test('the expedition enforces prerequisites and completes all five missions', ()
   assert.equal(C.complete(s, 'greenhouse'), false);
   assert.equal(C.complete(s, 'habitat'), false);
   assert.equal(C.complete(s, 'solar'), true);
-  assert.equal(s.energy, 100);
+  assert.equal(s.energy, 72);
   C.complete(s, 'greenhouse');
-  assert.equal(s.oxygen, 100);
+  assert.equal(s.oxygen, 98);
   assert.equal(C.complete(s, 'habitat'), false);
   C.complete(s, 'crystals');
   assert.equal(s.samples, 3);
@@ -24,7 +24,7 @@ test('revisiting discoveries never duplicates rewards; life support can refill o
   C.complete(s, 'rover'); C.complete(s, 'rover');
   assert.equal(s.samples, 5);
   C.complete(s, 'solar'); C.complete(s, 'greenhouse'); s.oxygen = 30;
-  C.complete(s, 'greenhouse'); assert.equal(s.oxygen, 100);
+  C.complete(s, 'greenhouse'); assert.equal(s.oxygen, 30);
 });
 test('every station has a reachable approach from spawn, with no blocked path nodes', () => {
   const start = C.freshState().player;
@@ -326,8 +326,8 @@ test('after ORBI, food, water and a weather review are required before leaving',
   const worldPosition={...s.player};
   assert.equal(C.nextPreparation(s).id,'eat');assert.equal(C.canExitShip(s),false);assert.equal(C.exitShip(s),false);assert.equal(s.location,'ship');assert.deepEqual(s.player,worldPosition);
   assert.equal(C.checkWeather(s),false);const energy=s.energy;
-  assert.equal(C.eatMeal(s),true);assert.equal(s.energy,energy+15);assert.equal(C.nextPreparation(s).id,'drink');
-  assert.equal(C.eatMeal(s),false);assert.equal(s.energy,energy+15);assert.equal(C.checkWeather(s),false);
+  assert.equal(C.eatMeal(s),true);assert.equal(s.energy,energy);assert.equal(C.nextPreparation(s).id,'drink');
+  assert.equal(C.eatMeal(s),false);assert.equal(s.energy,energy);assert.equal(C.checkWeather(s),false);
   assert.equal(C.drinkWater(s),true);assert.equal(C.drinkWater(s),false);assert.equal(C.nextPreparation(s).id,'weather');
   assert.equal(C.canExitShip(s),false);assert.equal(C.checkWeather(s),true);assert.equal(C.nextPreparation(s).id,'emu');
   for(const part of C.emuParts)C.placeEmuPart(s,part.id,part.id);assert.equal(C.nextPreparation(s),undefined);
@@ -388,13 +388,7 @@ test('Day 1 rewards exploration and sleep starts Day 2 without replaying amnesia
   assert.notEqual(C.weatherFor(1).temperature,C.weatherFor(2).temperature);assert.equal(C.weatherFor(2).sol,2);
 });
 
-test('later days require their task and continue into repeatable station surveys',()=>{
-  const s=crewReady();s.survival.day=3;s.survival.food=100;s.survival.water=100;breakfast(s);
-  assert.equal(C.startNextDay(s),false);C.complete(s,'solar');assert.equal(C.startNextDay(s),true);assert.equal(s.survival.day,4);assert.equal(C.dayGoals(s)[0].station,'greenhouse');
-  C.complete(s,'greenhouse');s.survival.day=8;breakfast(s);assert.equal(C.dayGoals(s)[0].done,false);
-  const target=C.dayGoals(s)[0].station;visit(s,target);assert.equal(C.dayGoals(s)[0].done,true);C.enterShip(s);
-  assert.equal(C.startNextDay(s),true);assert.equal(s.survival.day,9);assert.equal(C.dayGoals(s)[0].done,false);assert.notEqual(C.dayGoals(s)[0].station,target);
-});
+test('Day 6 maintenance, supplies, and rover data lead to the first harvest',()=>{const s=crewReady();s.survival.day=6;s.survival.food=100;s.survival.water=100;breakfast(s);assert.equal(C.startNextDay(s),false);visit(s,'solar');assert.equal(C.performOperation(s,'solar'),true);visit(s,'storage');C.collectSupplies(s);visit(s,'rover');assert.equal(C.performOperation(s,'rover'),true);C.enterShip(s);assert.equal(C.startNextDay(s),true);assert.equal(s.survival.day,7);assert.equal(C.dayGoals(s)[0].station,'greenhouse');});
 
 test('rest cannot strand the next morning without breakfast supplies',()=>{
   const s=crewReady();breakfast(s);visit(s,'rocket');visit(s,'habitat');visit(s,'storage');C.collectSupplies(s);C.enterShip(s);

@@ -5,8 +5,9 @@
   "description": "A dependency-free pixel-art Mars exploration game.",
   "scripts": {
     "start": "node scripts/serve.mjs",
-    "test": "node --test tests/*.test.cjs",
-    "nasa:sync": "node scripts/sync-donki.mjs"
+    "test": "node --test tests/*.test.cjs"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }
